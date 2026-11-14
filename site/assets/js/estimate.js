@@ -529,13 +529,11 @@
           var t = setTimeout(function () { rej2('timeout'); }, 12000);
           gl.on('load', function () {
             clearTimeout(t);
-            gl.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            gl.addSource('route', { type: 'geojson', lineMetrics: true, data: { type: 'FeatureCollection', features: [] } });
             gl.addLayer({ id: 'route-case', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': BRAND.routeCase, 'line-width': 8, 'line-opacity': 0.85 } });
             gl.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': BRAND.route, 'line-width': 4.5 } });
-            gl.addLayer({ id: 'route-dash', type: 'line', source: 'route', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': '#ffffff', 'line-width': 2.2, 'line-opacity': 0.9, 'line-dasharray': [0, 4, 3] } });
-            gl.addSource('truck', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-            gl.addLayer({ id: 'truck-glow', type: 'circle', source: 'truck', paint: { 'circle-radius': 14, 'circle-color': BRAND.route, 'circle-opacity': 0.25, 'circle-blur': 0.4 } });
-            gl.addLayer({ id: 'truck-dot', type: 'circle', source: 'truck', paint: { 'circle-radius': 6.5, 'circle-color': '#ffffff', 'circle-stroke-color': BRAND.routeCase, 'circle-stroke-width': 3 } });
+            gl.addLayer({ id: 'route-glow', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': 9, 'line-blur': 3, 'line-gradient': glowGradient(-1) } });
+            gl.addLayer({ id: 'route-spark', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': 2.5, 'line-gradient': sparkGradient(-1) } });
             startLive();
             var at = el.querySelector('.maplibregl-ctrl-attrib'); if (at) at.classList.remove('maplibregl-compact-show');
             res2(gl);
@@ -545,41 +543,37 @@
       });
     return glReady;
   }
-  // "Live" route: marching dashes along the line and a truck dot running base > pickup > drop-off > base
-  var DASH = [[0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0], [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5]];
-  var live = { coords: null, cum: null, total: 0, step: -1 }, reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function setLivePath(coords) {
-    if (!coords || coords.length < 2) { live.coords = null; if (gl && gl.getSource('truck')) gl.getSource('truck').setData({ type: 'FeatureCollection', features: [] }); return; }
-    var cum = [0];
-    for (var i = 1; i < coords.length; i++) {
-      var a = coords[i - 1], b = coords[i], dx = (b[0] - a[0]) * Math.cos(a[1] * Math.PI / 180), dy = b[1] - a[1];
-      cum.push(cum[i - 1] + Math.sqrt(dx * dx + dy * dy));
-    }
-    live.coords = coords; live.cum = cum; live.total = cum[cum.length - 1]; live.t0 = performance.now();
+  // "Live" route: a soft light pulse travels along the route, base > pickup > drop-off > base
+  var live = { on: false, t0: 0, len: 0 }, reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function band(p, w, color, peak) {
+    var clear = 'rgba(255,255,255,0)';
+    if (p < 0) return ['interpolate', ['linear'], ['line-progress'], 0, clear, 1, clear];
+    var a = Math.max(0.0001, p - w), b2 = Math.min(0.9998, p), c = Math.min(0.9999, p + w * 0.15);
+    if (b2 <= a) b2 = a + 0.00005; if (c <= b2) c = b2 + 0.00005;
+    return ['interpolate', ['linear'], ['line-progress'], 0, clear, a, clear, b2, color + peak + ')', c, clear, 1, clear];
   }
-  function pointAt(d) {
-    var c = live.coords, cum = live.cum, lo = 0, hi = cum.length - 1;
-    while (hi - lo > 1) { var mid = (lo + hi) >> 1; if (cum[mid] < d) lo = mid; else hi = mid; }
-    var seg = cum[hi] - cum[lo] || 1, t = (d - cum[lo]) / seg;
-    return [c[lo][0] + (c[hi][0] - c[lo][0]) * t, c[lo][1] + (c[hi][1] - c[lo][1]) * t];
+  function glowGradient(p) { return band(p, 0.09, 'rgba(255,214,160,', 0.85); }
+  function sparkGradient(p) { return band(p, 0.05, 'rgba(255,255,255,', 1); }
+  function setLivePath(coords) {
+    live.on = !!(coords && coords.length > 1); live.t0 = performance.now(); live.len = coords ? coords.length : 0;
+    if (!live.on && gl && gl.getLayer('route-glow')) { gl.setPaintProperty('route-glow', 'line-gradient', glowGradient(-1)); gl.setPaintProperty('route-spark', 'line-gradient', sparkGradient(-1)); }
   }
   function startLive() {
     if (reduceMotion) return;
+    var last = 0;
     function frame(ts) {
-      if (gl && gl.getLayer('route-dash')) {
-        var st = Math.floor(ts / 55) % DASH.length;
-        if (st !== live.step) { gl.setPaintProperty('route-dash', 'line-dasharray', DASH[st]); live.step = st; }
-        if (live.coords) {
-          var dur = Math.min(14000, Math.max(7000, live.coords.length * 6));
-          var p = ((ts - live.t0) % dur) / dur;
-          gl.getSource('truck').setData({ type: 'Feature', geometry: { type: 'Point', coordinates: pointAt(p * live.total) }, properties: {} });
-        }
+      if (gl && live.on && gl.getLayer('route-glow') && ts - last > 33) {
+        last = ts;
+        var dur = Math.min(9000, Math.max(5000, live.len * 4)), p = ((ts - live.t0) % dur) / dur;
+        p = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;   // ease in-out
+        gl.setPaintProperty('route-glow', 'line-gradient', glowGradient(p));
+        gl.setPaintProperty('route-spark', 'line-gradient', sparkGradient(p));
       }
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
   }
-  function pinEl(color, txt, title) { var d = document.createElement('div'); d.className = 'est-pin'; d.title = title; d.innerHTML = '<span style="background:' + color + '">' + txt + '</span>'; return d; }
+  function pinEl(color, txt, title) { var d = document.createElement('div'); d.className = 'est-pin' + (txt !== 'J' ? ' pulse' : ''); d.title = title; d.style.setProperty('--pc', color); d.innerHTML = '<span style="background:' + color + '">' + txt + '</span>'; return d; }
 
   function drawMap() {
     var el = $('#est-map'); if (!el) return;
@@ -613,7 +607,7 @@
     return leafletReady;
   }
   function pin(color, txt) {
-    return window.L.divIcon({ className: 'est-pin', html: '<span style="background:' + color + '">' + txt + '</span>', iconSize: [30, 30], iconAnchor: [15, 15] });
+    return window.L.divIcon({ className: 'est-pin' + (txt !== 'J' ? ' pulse' : ''), html: '<span style="background:' + color + '">' + txt + '</span>', iconSize: [30, 30], iconAnchor: [15, 15] });
   }
   function drawLeaflet(el) {
     loadLeaflet().then(function () {
@@ -629,7 +623,7 @@
       L.marker([B.lat, B.lon], { icon: pin('#24272b', 'J'), title: CONFIG.base.label }).addTo(layers);
       if (S.pickup) { L.marker([S.pickup.lat, S.pickup.lon], { icon: pin('#f2891c', 'A') }).addTo(layers); pts.push([S.pickup.lat, S.pickup.lon]); }
       if (S.drop) { L.marker([S.drop.lat, S.drop.lon], { icon: pin('#0a6a44', 'B') }).addTo(layers); pts.push([S.drop.lat, S.drop.lon]); }
-      if (S.route && S.route.geometry) { L.geoJSON(S.route.geometry, { style: { color: '#f2891c', weight: 5, opacity: .9 } }).addTo(layers); L.geoJSON(S.route.geometry, { style: { color: '#fff', weight: 2, opacity: .9, dashArray: '4 10', className: 'route-live' } }).addTo(layers); }
+      if (S.route && S.route.geometry) { L.geoJSON(S.route.geometry, { style: { color: '#f2891c', weight: 5, opacity: .9 } }).addTo(layers); }
       else if (S.pickup) L.polyline(pts, { color: '#f2891c', weight: 3, dashArray: '6 8' }).addTo(layers);
       if (pts.length > 1) map.fitBounds(pts, { padding: [36, 36], maxZoom: 13 }); else map.setView(pts[0], 9);
       setTimeout(function () { map.invalidateSize(); }, 50);
