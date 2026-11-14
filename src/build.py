@@ -125,8 +125,20 @@ NAV = [
 def esc(s):
     return html.escape(s, quote=True)
 
+def clean_path(path):
+    """Site path without .html: index.html -> '', blog/index.html -> blog/, RV-Transport-San-Diego.html -> RV-Transport-San-Diego."""
+    frag = ""
+    if "#" in path:
+        path, frag = path.split("#", 1)
+        frag = "#" + frag
+    if path.endswith("index.html"):
+        path = path[: -len("index.html")]
+    elif path.endswith(".html"):
+        path = path[:-5]
+    return path + frag
+
 def url_for(path):
-    return DOMAIN + "/" if path == "index.html" else f"{DOMAIN}/{path}"
+    return DOMAIN + "/" + clean_path(path)
 
 # ---------- schema ----------
 def business_schema():
@@ -576,7 +588,7 @@ def page(path, title, desc, body, schema_items, og_image=OG_IMG, robots="index,f
           <li><a href="{R}Auto-Transport-San-Diego.html">Car transport San Diego</a></li>
           <li><a href="{R}Classic-Car-Transport-San-Diego.html">Classic car transport</a></li>
           {footer_routes}
-          <li><a href="{R}blog/blog.html">RV &amp; car transport tips</a></li>
+          <li><a href="{R}blog/index.html">RV &amp; car transport tips</a></li>
         </ul>
       </div>
       <div>
@@ -607,7 +619,23 @@ def page(path, title, desc, body, schema_items, og_image=OG_IMG, robots="index,f
 </html>
 '''
 
+_HREF = re.compile(r'(href|content)="([^"]+?\.html)(#[^"]*)?"')
+def _clean_links(path, html_text):
+    """Rewrite internal .html links to clean, root-relative URLs (GitHub Pages serves /page as page.html)."""
+    base = os.path.dirname(path)
+    def fix(m):
+        attr, url, frag = m.group(1), m.group(2), m.group(3) or ""
+        if url.startswith(DOMAIN + "/"):
+            return f'{attr}="{DOMAIN}/{clean_path(url[len(DOMAIN) + 1:])}{frag}"'
+        if re.match(r"^[a-z]+:", url) or attr == "content":
+            return m.group(0)
+        site_path = os.path.normpath(os.path.join(base, url)) if not url.startswith("/") else url.lstrip("/")
+        return f'{attr}="/{clean_path(site_path)}{frag}"'
+    return _HREF.sub(fix, html_text)
+
 def write(path, content):
+    if path.endswith(".html"):
+        content = _clean_links(path, content)
     full = os.path.join(OUT, path)
     os.makedirs(os.path.dirname(full), exist_ok=True)
     with open(full, "w", encoding="utf-8") as f:

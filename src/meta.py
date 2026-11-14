@@ -17,7 +17,7 @@ META = {
  "RV-Transport-San-Diego.html": "RV transport from San Diego with 30 years of experience. Fifth wheels, trailers, toy haulers and motorhomes, local or long distance. Call (760) 532-1964.",
  "RV-transport-Chula-Vista.html": "RV transport and towing in Chula Vista with 30 years of experience. Bayfront RV parks, Otay Mesa storage and long-distance moves. Call (760) 532-1964.",
  "RV-transport-Imperial-Beach.html": "RV transport in Imperial Beach and Coronado with 30 years of experience. Beach campgrounds, storage and toy hauler desert runs. Call (760) 532-1964.",
- "blog/blog.html": "RV towing and transport tips from Chato's in San Diego, 30 years of experience: prep checklists, open vs enclosed transport and tight-access moves.",
+ "blog/index.html": "RV towing and transport tips from Chato's in San Diego, 30 years of experience: prep checklists, open vs enclosed transport and tight-access moves.",
  "blog/how-to-prepare-fifth-wheel-for-transport.html": "How to prepare a fifth wheel or travel trailer for RV transport: tanks, slides, tires and paperwork. Checklist from 30 years of experience in San Diego.",
  "blog/moving-rv-out-of-storage-or-tight-driveway.html": "Moving an RV out of a San Diego storage lot, backyard or steep driveway? What to send and how to tell if it's doable, from 30 years of experience.",
  "blog/open-car-hauler-vs-enclosed-classic-car-transport.html": "Open vs enclosed classic car transport, explained honestly with 30 years of experience: what each protects against and what to ask before booking.",

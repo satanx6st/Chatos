@@ -589,11 +589,11 @@ def blog_shell_hero(h1, lede, img, trail):
 cards = ""
 for p in POSTS:
     path = "blog/" + p["slug"]
-    trail = [("index.html", "Home"), ("blog/blog.html", "Tips"), (path, p["h1"])]
+    trail = [("index.html", "Home"), ("blog/index.html", "Tips"), (path, p["h1"])]
     body = f'''
 <section class="hero short" style="--pos:50% 50%">
   <div class="wrap">
-    <nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="{R}index.html">Home</a></li><li><a href="{R}blog/blog.html">Tips</a></li><li aria-current="page">{esc(p["h1"])}</li></ol></nav>
+    <nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="{R}index.html">Home</a></li><li><a href="{R}blog/index.html">Tips</a></li><li aria-current="page">{esc(p["h1"])}</li></ol></nav>
     <h1>{p["h1"]}</h1>
     <p class="meta">By Jose Barba, owner of Chato's Auto Transport &amp; RV Towing. Updated November 2026.</p>
   </div>
@@ -634,10 +634,10 @@ blog_body = f'''
 <section class="sec"><div class="wrap"><div class="posts">{cards}
 </div></div></section>
 ''' + band()
-PAGES.append(("blog/blog.html", "0.5"))
-write("blog/blog.html", page("blog/blog.html", "RV & Car Transport Tips | Chato's RV Towing San Diego",
+PAGES.append(("blog/index.html", "0.5"))
+write("blog/index.html", page("blog/index.html", "RV & Car Transport Tips | Chato's RV Towing San Diego",
       "Tips for RV towing, RV transport and classic car transport from Chato's in San Diego: prep checklists, open vs enclosed transport and tight-access moves.",
-      blog_body, [business_schema(), crumbs_schema([("index.html", "Home"), ("blog/blog.html", "Tips")])]))
+      blog_body, [business_schema(), crumbs_schema([("index.html", "Home"), ("blog/index.html", "Tips")])]))
 
 # =====================================================================
 # Redirect stubs, 404, sitemap, robots, manifest
@@ -652,9 +652,9 @@ def redirect(path, target_rel, target_abs):
 ''')
 
 for old in ["post.html", "post-1.html", "post-2.html", "post-3.html", "post-4.html", "post-5.html"]:
-    redirect("blog/" + old, "blog.html", DOMAIN + "/blog/blog.html")
-redirect("blog/index.html", "blog.html", DOMAIN + "/blog/blog.html")
-redirect("Chatos-Auto-and-RV-Towing.html", "./", DOMAIN + "/")
+    redirect("blog/" + old, "/blog/", DOMAIN + "/blog/")
+redirect("blog/blog.html", "/blog/", DOMAIN + "/blog/")
+redirect("Chatos-Auto-and-RV-Towing.html", "/", DOMAIN + "/")
 
 R = "/"
 nf = f'''
