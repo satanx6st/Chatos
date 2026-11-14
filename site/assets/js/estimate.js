@@ -407,10 +407,10 @@
       var L = window.L;
       if (!map) {
         map = L.map(el, { scrollWheelZoom: false, zoomControl: true, attributionControl: true }).setView([CONFIG.base.lat, CONFIG.base.lon], 9);
-        // Soft CARTO Voyager tiles; if they fail, fall back to OpenStreetMap
-        var errs = 0, tiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap contributors &copy; CARTO' }).addTo(map);
+        // OpenStreetMap tiles (no key needed); if they fail, switch to Esri World Street Map
+        var errs = 0, tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
         tiles.on('tileerror', function () {
-          if (++errs === 4) { map.removeLayer(tiles); L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap contributors' }).addTo(map); }
+          if (++errs === 4) { map.removeLayer(tiles); L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' }).addTo(map); }
         });
         layers = L.layerGroup().addTo(map);
       }

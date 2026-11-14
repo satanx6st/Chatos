@@ -46,7 +46,7 @@ Styles and scripts in `site/assets/` are edited directly; the generator does not
 
 - Rates are in `CONFIG` at the top of `site/assets/js/estimate.js`. Confirm them with Jose.
 - Distance starts at Jose's base, 1572 Bear Valley Pkwy, Escondido.
-- Address search: Photon (OpenStreetMap). Routing: OSRM. Car models: NHTSA. Map tiles: CARTO. No API keys needed.
+- Address search: Photon (OpenStreetMap). Routing: OSRM. Car models: NHTSA. Map tiles: OpenStreetMap (Esri as backup). No API keys needed.
 - Diesel price: add a free EIA key (https://www.eia.gov/opendata/register.php) as the repo secret `EIA_API_KEY` to turn on the weekly update. Without it the site uses the value in `site/assets/data/fuel.json`. `dieselAdjust` in `CONFIG` adds a San Diego premium on top.
 
 ## Tracking
