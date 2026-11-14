@@ -46,7 +46,7 @@ Styles and scripts in `site/assets/` are edited directly; the generator does not
 
 - Rates are in `CONFIG` at the top of `site/assets/js/estimate.js`. Confirm them with Jose.
 - Distance starts at Jose's base, 1572 Bear Valley Pkwy, Escondido.
-- Address search: Photon (OpenStreetMap). Routing: OSRM. Car models: NHTSA. Map: MapLibre with OpenFreeMap vector tiles in Chato's colors (colors in BRAND inside estimate.js); falls back to Leaflet + OpenStreetMap. No API keys needed.
+- Address search: Esri World Geocoder (street addresses) + Photon (places). Routing: OSRM. 10% mileage buffer and extra stops in CONFIG. Car models: NHTSA. Map: MapLibre with OpenFreeMap vector tiles in Chato's colors (colors in BRAND inside estimate.js); falls back to Leaflet + OpenStreetMap. No API keys needed.
 - Diesel price: add a free EIA key (https://www.eia.gov/opendata/register.php) as the repo secret `EIA_API_KEY` to turn on the weekly update. Without it the site uses the value in `site/assets/data/fuel.json`. `dieselAdjust` in `CONFIG` adds a San Diego premium on top.
 
 ## Tracking

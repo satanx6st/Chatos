@@ -22,6 +22,8 @@
     lodgingPerNight: 160,            // added for every 10 driving hours
     rvLengthOver: { ft: 30, perFt: 0.02 },   // +2% per foot over 30 ft
     rush: 0.15,                      // same-day / ASAP
+    routeBuffer: 0.10,               // +10% miles and drive time for detours, traffic and fuel stops
+    extraStop: { miles: 8, hours: 0.33, fee: 25 },   // each extra stop on the way
     rangeLow: 0.9, rangeHigh: 1.2, roundTo: 25,
     addOns: {
       backyard:   { label: 'Backyard or side-yard pickup', price: 150, review: true },
@@ -46,6 +48,13 @@
     small: { label: 'Golf cart, moto & ATV', icon: 'M5 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm14 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM9 13h4l2-5h3M11 8h3' },
     boat: { label: 'Boat on trailer', icon: 'M3 14h18l-3 5H6zM6 13V7l7-3v9M13 6l5 7' }
   };
+  var CAT_INFO = {
+    rv: 'Fifth wheels, travel trailers, toy haulers, motorhomes',
+    car: 'Daily drivers, SUVs, pickups and EVs',
+    classic: 'Classics, exotics and show cars',
+    small: 'Golf carts, motorcycles, ATVs and UTVs',
+    boat: 'A boat on its own trailer'
+  };
   var RV_TYPES = [
     { id: 'fifth', label: 'Fifth wheel', hitch: 'Fifth wheel king pin' },
     { id: 'travel', label: 'Travel trailer', hitch: 'Bumper pull, ball hitch' },
@@ -68,7 +77,7 @@
 
   // ---------- state ----------
   var S = {
-    cat: 'rv', rvType: 'fifth', length: 32, hitch: 'Fifth wheel king pin', year: '', make: '', model: '', body: BODIES[0],
+    cat: null, rvType: '', length: 32, hitch: '', stops: 0, year: '', make: '', model: '', body: BODIES[0],
     smallType: 'Golf cart', qty: 1, specialty: {}, ev: false, bodyTouched: false,
     pickup: null, drop: null, pickupType: LOC_TYPES[0], dropType: LOC_TYPES[0],
     access: { pickup: {}, drop: {} }, cond: {}, setplace: false, timing: 'Flexible', date: '', name: '', notes: '',
@@ -102,13 +111,18 @@
   function ascii(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7E\n]/g, ''); }
 
   // ---------- category pills ----------
+  function chooseCat(k) {
+    S.cat = k; S.year = S.make = S.model = ''; S.specialty = {}; subTab = 'year'; S.length = k === 'boat' ? 20 : 32;
+    S.body = BODIES[0]; S.bodyTouched = false; S.rvType = ''; S.hitch = ''; S.cond = {};
+    if (!started) { started = true; track('estimate_started', { vehicle: k }); }
+    drawPills(); go(0);
+  }
   function drawPills() {
     pills.innerHTML = '';
+    pills.hidden = !S.cat;
+    if (!S.cat) return;
     Object.keys(CATS).forEach(function (k) {
-      pills.appendChild(h('button', { type: 'button', class: 'pill' + (S.cat === k ? ' on' : ''), 'aria-pressed': S.cat === k, onclick: function () {
-        S.cat = k; S.year = S.make = S.model = ''; S.specialty = {}; subTab = 'year'; S.length = k === 'boat' ? 20 : 32; S.body = BODIES[0]; S.bodyTouched = false; if (!started) { started = true; track('estimate_started', { vehicle: k }); }
-        drawPills(); go(0);
-      } , html: '<span>' + CATS[k].label + '</span>' + icon(CATS[k].icon) }));
+      pills.appendChild(h('button', { type: 'button', class: 'pill' + (S.cat === k ? ' on' : ''), 'aria-pressed': S.cat === k, onclick: function () { if (S.cat !== k) chooseCat(k); }, html: '<span>' + CATS[k].label + '</span>' + icon(CATS[k].icon) }));
     });
   }
   function drawTabs() {
@@ -143,6 +157,7 @@
   // ---------- step 1: vehicle ----------
   var subTab = 'year';
   function vehicleOk() {
+    if (!S.cat) return false;
     if (S.cat === 'rv') return !!S.rvType && S.length > 0;
     if (S.cat === 'small') return !!S.smallType;
     if (S.cat === 'boat') return S.length > 0;
@@ -150,6 +165,16 @@
   }
   function stepVehicle() {
     var f = document.createDocumentFragment();
+    if (!S.cat) {
+      f.appendChild(h('h3', { text: 'What are you moving?' }));
+      var tg = h('div', { class: 'type-grid' });
+      Object.keys(CATS).forEach(function (k) {
+        tg.appendChild(h('button', { type: 'button', class: 'type-card', onclick: function () { chooseCat(k); }, html: icon(CATS[k].icon) + '<b>' + CATS[k].label + '</b><span>' + CAT_INFO[k] + '</span>' }));
+      });
+      f.appendChild(tg);
+      f.appendChild(h('p', { class: 'hint', text: 'Pick the type first so the estimate asks the right questions.' }));
+      return f;
+    }
     if (S.cat === 'rv') {
       f.appendChild(h('h3', { text: 'What kind of RV?' }));
       var g = h('div', { class: 'cards' });
@@ -278,26 +303,28 @@
     var input = h('input', { type: 'search', autocomplete: 'off', placeholder: 'Search an address, city or place', value: cur ? cur.label : '', 'aria-label': which === 'pickup' ? 'Pickup address' : 'Drop-off address' });
     var list = h('ul', { class: 'sugg', role: 'listbox' });
     var timer, ctrl;
+    var items = [];
+    function show(list_, arr) {
+      list_.innerHTML = ''; items = arr;
+      arr.forEach(function (it) {
+        list_.appendChild(h('li', {}, [h('button', { type: 'button', html: '<b>' + escapeHtml(it.main) + '</b><span>' + escapeHtml(it.sub) + '</span>', onclick: function () { choose(it); } })]));
+      });
+      if (!arr.length) list_.appendChild(h('li', { class: 'empty', text: 'No places found. Try the street number, street and city, like 15738 Thyme Ct, Adelanto.' }));
+    }
+    function choose(it) {
+      list.innerHTML = ''; input.value = it.main + (it.sub ? ', ' + it.sub : '');
+      it.get().then(function (pl) { if (pl) setPlace(which, pl); else show(list, []); });
+    }
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); if (items[0]) choose(items[0]); } });
     input.addEventListener('input', function () {
       clearTimeout(timer);
       var q = input.value.trim();
-      if (q.length < 3) { list.innerHTML = ''; return; }
+      if (q.length < 3) { list.innerHTML = ''; items = []; return; }
       timer = setTimeout(function () {
         if (ctrl && ctrl.abort) ctrl.abort();
         ctrl = window.AbortController ? new AbortController() : null;
-        fetch('https://photon.komoot.io/api/?limit=6&lang=en&lat=33.1&lon=-117.1&q=' + encodeURIComponent(q), ctrl ? { signal: ctrl.signal } : {})
-          .then(function (r) { return r.json(); })
-          .then(function (j) {
-            list.innerHTML = '';
-            (j.features || []).forEach(function (ft) {
-              var p = ft.properties, lab = placeLabel(p);
-              list.appendChild(h('li', {}, [h('button', { type: 'button', html: '<b>' + escapeHtml(lab.main) + '</b><span>' + escapeHtml(lab.sub) + '</span>', onclick: function () {
-                setPlace(which, { label: lab.main + (lab.sub ? ', ' + lab.sub : ''), lat: ft.geometry.coordinates[1], lon: ft.geometry.coordinates[0] });
-              } })]));
-            });
-            if (!list.children.length) list.appendChild(h('li', { class: 'empty', text: 'No places found. Try adding the city.' }));
-          }).catch(function () {});
-      }, 280);
+        searchPlaces(q, ctrl && ctrl.signal).then(function (arr) { show(list, arr); }).catch(function () {});
+      }, 260);
     });
     wrap.appendChild(h('div', { class: 'addr-row' }, [input, h('button', { type: 'button', class: 'locate', title: 'Use my location', 'aria-label': 'Use my location', html: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2"/></svg>', onclick: function () { locate(which); } })]));
     wrap.appendChild(list);
@@ -310,14 +337,44 @@
     var sub = [p.name && street && p.name !== street ? street : '', p.city, p.state, p.postcode].filter(Boolean).filter(function (v, i, a) { return a.indexOf(v) === i && v !== main; }).join(', ');
     return { main: main, sub: sub };
   }
+  // Address search: Esri World Geocoder (best US street-address coverage, no key) + Photon/OpenStreetMap for places
+  var ESRI = 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/';
+  function searchPlaces(q, signal) {
+    var opt = signal ? { signal: signal } : {};
+    var esri = fetch(ESRI + 'suggest?f=json&countryCode=USA,MEX&maxSuggestions=6&location=-117.05,33.12&text=' + encodeURIComponent(q), opt)
+      .then(function (r) { return r.json(); }).then(function (j) {
+        return (j.suggestions || []).filter(function (x) { return !x.isCollection; }).map(function (x) {
+          var parts = x.text.replace(/, USA$/, '').split(', ');
+          return { main: parts[0], sub: parts.slice(1).join(', '), get: function () {
+            return fetch(ESRI + 'findAddressCandidates?f=json&maxLocations=1&magicKey=' + encodeURIComponent(x.magicKey) + '&SingleLine=' + encodeURIComponent(x.text))
+              .then(function (r) { return r.json(); }).then(function (k) {
+                var c = k.candidates && k.candidates[0]; if (!c) return null;
+                return { label: c.address || x.text, lat: c.location.y, lon: c.location.x };
+              }).catch(function () { return null; });
+          } };
+        });
+      }).catch(function () { return []; });
+    var photon = fetch('https://photon.komoot.io/api/?limit=4&lang=en&lat=33.1&lon=-117.1&q=' + encodeURIComponent(q), opt)
+      .then(function (r) { return r.json(); }).then(function (j) {
+        return (j.features || []).map(function (ft) {
+          var lab = placeLabel(ft.properties);
+          return { main: lab.main, sub: lab.sub, get: function () { return Promise.resolve({ label: lab.main + (lab.sub ? ', ' + lab.sub : ''), lat: ft.geometry.coordinates[1], lon: ft.geometry.coordinates[0] }); } };
+        });
+      }).catch(function () { return []; });
+    return Promise.all([esri, photon]).then(function (r) {
+      var out = r[0].slice(0, 6), seen = out.map(function (x) { return x.main.toLowerCase(); });
+      r[1].forEach(function (x) { if (x.main && seen.indexOf(x.main.toLowerCase()) < 0 && out.length < 8) { out.push(x); seen.push(x.main.toLowerCase()); } });
+      return out;
+    });
+  }
   function escapeHtml(s) { return String(s || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function locate(which) {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(function (pos) {
       var lat = pos.coords.latitude, lon = pos.coords.longitude;
-      fetch('https://photon.komoot.io/reverse?lat=' + lat + '&lon=' + lon).then(function (r) { return r.json(); }).then(function (j) {
-        var p = (j.features && j.features[0] && j.features[0].properties) || {}, lab = placeLabel(p);
-        setPlace(which, { label: (lab.main || 'My location') + (lab.sub ? ', ' + lab.sub : ''), lat: lat, lon: lon });
+      fetch(ESRI + 'reverseGeocode?f=json&location=' + lon + ',' + lat).then(function (r) { return r.json(); }).then(function (j) {
+        var a = j.address || {};
+        setPlace(which, { label: a.LongLabel ? a.LongLabel.replace(/, USA$/, '') : (a.Match_addr || 'My location'), lat: lat, lon: lon });
       }).catch(function () { setPlace(which, { label: 'My location', lat: lat, lon: lon }); });
     });
   }
@@ -337,6 +394,9 @@
     });
     f.appendChild(c);
     f.appendChild(h('p', { class: 'hint', text: "Everything good? Leave these off. If anything is on, Jose will review it before he quotes." }));
+    f.appendChild(h('h3', { text: 'Extra stops on the way?' }));
+    f.appendChild(chips(['None', '1 stop', '2 stops', '3 stops'], S.stops ? S.stops + (S.stops > 1 ? ' stops' : ' stop') : 'None', function (v) { S.stops = v === 'None' ? 0 : parseInt(v, 10); render(); }));
+    f.appendChild(h('p', { class: 'hint', text: 'Picking up keys or paperwork, a gas or dump station, a second address. Each stop adds a few miles and some time.' }));
     f.appendChild(h('h3', { text: 'When do you need it moved?' }));
     f.appendChild(chips(['Flexible', 'This week', 'ASAP or same day'], S.timing, function (v) { S.timing = v; render(); }));
     f.appendChild(h('label', { class: 'field' }, [h('span', { text: 'Preferred date (optional)' }), h('input', { type: 'date', value: S.date, onchange: function (e) { S.date = e.target.value; } })]));
@@ -351,11 +411,12 @@
   function compute() {
     if (!S.route) return null;
     var k = vehicleKey(), C = CONFIG, leg = S.route.legs;
-    var toPickupMi = leg[0].mi, loadedMi = leg[1].mi, homeMi = leg[2].mi;
+    var buf = 1 + C.routeBuffer, st = S.stops || 0;
+    var toPickupMi = leg[0].mi * buf, loadedMi = leg[1].mi * buf + st * C.extraStop.miles, homeMi = leg[2].mi * buf;
     var mpgTow = C.mpgTowing[k];
     if (k === 'rv') mpgTow = Math.max(6.5, mpgTow - Math.max(0, S.length - 30) * 0.12);
     var fuel = ((toPickupMi + homeMi * C.returnLegFactor) / C.mpgEmpty + loadedMi / mpgTow) * C.dieselPerGallon;
-    var driveH = leg[0].h + leg[1].h * C.towingSlowdown + leg[2].h * C.returnLegFactor;
+    var driveH = (leg[0].h + leg[1].h * C.towingSlowdown + leg[2].h * C.returnLegFactor) * buf + st * C.extraStop.hours;
     var handleH = C.handlingHours[k] * (k === 'small' ? Math.max(1, S.qty * 0.7) : 1);
     var time = (driveH + handleH) * C.driverPerHour;
     var hookup = C.hookupFee[k] * (k === 'small' ? (1 + (S.qty - 1) * 0.5) : 1);
@@ -376,7 +437,8 @@
     var totalDriveH = leg[0].h + leg[1].h * C.towingSlowdown + leg[2].h;
     var nights = Math.floor(totalDriveH / 10);
     var lodging = nights * C.lodgingPerNight;
-    var sub = hookup + fuel + time + sizeAdj + addTotal + lodging;
+    var stopFee = st * C.extraStop.fee;
+    var sub = hookup + fuel + time + sizeAdj + addTotal + lodging + stopFee;
     var rush = S.timing === 'ASAP or same day' ? sub * C.rush : 0;
     var total = Math.max(C.minimum[k], sub + rush);
     var r = function (n) { return Math.round(n / C.roundTo) * C.roundTo; };
@@ -384,12 +446,13 @@
       low: r(total * C.rangeLow), high: r(total * C.rangeHigh), total: total,
       lines: [
         ['Tow and hookup fee', hookup + sizeAdj],
-        ['Diesel at $' + CONFIG.dieselPerGallon.toFixed(2) + '/gal, ' + Math.round(toPickupMi + loadedMi + homeMi) + ' total miles', fuel],
+        ['Diesel at $' + CONFIG.dieselPerGallon.toFixed(2) + '/gal, ' + Math.round(toPickupMi + loadedMi + homeMi) + ' mi incl. ' + Math.round(C.routeBuffer * 100) + '% detour buffer', fuel],
         ['Driver time, about ' + (driveH + handleH).toFixed(1) + ' hrs', time]
       ].concat(add.filter(function (a) { return a.price; }).map(function (a) { return [a.label, a.price]; }))
+        .concat(stopFee ? [['Extra stops (' + st + ')', stopFee]] : [])
         .concat(lodging ? [['Overnight on the road (' + nights + ')', lodging]] : [])
         .concat(rush ? [['ASAP or same day', rush]] : []),
-      review: review, miles: { toPickup: toPickupMi, loaded: loadedMi, home: homeMi }, minApplied: total === C.minimum[k] && sub + rush < C.minimum[k]
+      review: review, miles: { toPickup: leg[0].mi, loaded: leg[1].mi, home: leg[2].mi }, minApplied: total === C.minimum[k] && sub + rush < C.minimum[k]
     };
   }
 
@@ -469,6 +532,11 @@
             gl.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
             gl.addLayer({ id: 'route-case', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': BRAND.routeCase, 'line-width': 8, 'line-opacity': 0.85 } });
             gl.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': BRAND.route, 'line-width': 4.5 } });
+            gl.addLayer({ id: 'route-dash', type: 'line', source: 'route', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': '#ffffff', 'line-width': 2.2, 'line-opacity': 0.9, 'line-dasharray': [0, 4, 3] } });
+            gl.addSource('truck', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            gl.addLayer({ id: 'truck-glow', type: 'circle', source: 'truck', paint: { 'circle-radius': 14, 'circle-color': BRAND.route, 'circle-opacity': 0.25, 'circle-blur': 0.4 } });
+            gl.addLayer({ id: 'truck-dot', type: 'circle', source: 'truck', paint: { 'circle-radius': 6.5, 'circle-color': '#ffffff', 'circle-stroke-color': BRAND.routeCase, 'circle-stroke-width': 3 } });
+            startLive();
             var at = el.querySelector('.maplibregl-ctrl-attrib'); if (at) at.classList.remove('maplibregl-compact-show');
             res2(gl);
           });
@@ -476,6 +544,40 @@
         });
       });
     return glReady;
+  }
+  // "Live" route: marching dashes along the line and a truck dot running base > pickup > drop-off > base
+  var DASH = [[0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0], [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5]];
+  var live = { coords: null, cum: null, total: 0, step: -1 }, reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function setLivePath(coords) {
+    if (!coords || coords.length < 2) { live.coords = null; if (gl && gl.getSource('truck')) gl.getSource('truck').setData({ type: 'FeatureCollection', features: [] }); return; }
+    var cum = [0];
+    for (var i = 1; i < coords.length; i++) {
+      var a = coords[i - 1], b = coords[i], dx = (b[0] - a[0]) * Math.cos(a[1] * Math.PI / 180), dy = b[1] - a[1];
+      cum.push(cum[i - 1] + Math.sqrt(dx * dx + dy * dy));
+    }
+    live.coords = coords; live.cum = cum; live.total = cum[cum.length - 1]; live.t0 = performance.now();
+  }
+  function pointAt(d) {
+    var c = live.coords, cum = live.cum, lo = 0, hi = cum.length - 1;
+    while (hi - lo > 1) { var mid = (lo + hi) >> 1; if (cum[mid] < d) lo = mid; else hi = mid; }
+    var seg = cum[hi] - cum[lo] || 1, t = (d - cum[lo]) / seg;
+    return [c[lo][0] + (c[hi][0] - c[lo][0]) * t, c[lo][1] + (c[hi][1] - c[lo][1]) * t];
+  }
+  function startLive() {
+    if (reduceMotion) return;
+    function frame(ts) {
+      if (gl && gl.getLayer('route-dash')) {
+        var st = Math.floor(ts / 55) % DASH.length;
+        if (st !== live.step) { gl.setPaintProperty('route-dash', 'line-dasharray', DASH[st]); live.step = st; }
+        if (live.coords) {
+          var dur = Math.min(14000, Math.max(7000, live.coords.length * 6));
+          var p = ((ts - live.t0) % dur) / dur;
+          gl.getSource('truck').setData({ type: 'Feature', geometry: { type: 'Point', coordinates: pointAt(p * live.total) }, properties: {} });
+        }
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
   }
   function pinEl(color, txt, title) { var d = document.createElement('div'); d.className = 'est-pin'; d.title = title; d.innerHTML = '<span style="background:' + color + '">' + txt + '</span>'; return d; }
 
@@ -492,6 +594,7 @@
       var geom = S.route && S.route.geometry ? S.route.geometry : (pts.length > 1 ? { type: 'LineString', coordinates: pts } : null);
       m.getSource('route').setData(geom ? { type: 'Feature', geometry: geom, properties: {} } : { type: 'FeatureCollection', features: [] });
       m.setPaintProperty('route-line', 'line-dasharray', S.route && S.route.geometry ? [1, 0] : [2, 2]);
+      setLivePath(geom && geom.coordinates && S.route && S.route.geometry ? geom.coordinates : null);
       if (pts.length > 1) {
         var b = new ML.LngLatBounds(pts[0], pts[0]);
         (geom && geom.coordinates ? geom.coordinates : pts).forEach(function (c) { b.extend(c); });
@@ -526,7 +629,7 @@
       L.marker([B.lat, B.lon], { icon: pin('#24272b', 'J'), title: CONFIG.base.label }).addTo(layers);
       if (S.pickup) { L.marker([S.pickup.lat, S.pickup.lon], { icon: pin('#f2891c', 'A') }).addTo(layers); pts.push([S.pickup.lat, S.pickup.lon]); }
       if (S.drop) { L.marker([S.drop.lat, S.drop.lon], { icon: pin('#0a6a44', 'B') }).addTo(layers); pts.push([S.drop.lat, S.drop.lon]); }
-      if (S.route && S.route.geometry) L.geoJSON(S.route.geometry, { style: { color: '#f2891c', weight: 5, opacity: .9 } }).addTo(layers);
+      if (S.route && S.route.geometry) { L.geoJSON(S.route.geometry, { style: { color: '#f2891c', weight: 5, opacity: .9 } }).addTo(layers); L.geoJSON(S.route.geometry, { style: { color: '#fff', weight: 2, opacity: .9, dashArray: '4 10', className: 'route-live' } }).addTo(layers); }
       else if (S.pickup) L.polyline(pts, { color: '#f2891c', weight: 3, dashArray: '6 8' }).addTo(layers);
       if (pts.length > 1) map.fitBounds(pts, { padding: [36, 36], maxZoom: 13 }); else map.setView(pts[0], 9);
       setTimeout(function () { map.invalidateSize(); }, 50);
@@ -551,6 +654,7 @@
       'Miles: about ' + Math.round(est.miles.loaded) + ' loaded',
       'Timing: ' + S.timing + (S.date ? ', ' + S.date : '')
     ];
+    if (S.stops) lines.push('Extra stops: ' + S.stops);
     var cond = Object.keys(S.cond).filter(function (c) { return S.cond[c]; }).map(function (c) { return CONFIG.addOns[c].label.toLowerCase(); });
     if (cond.length) lines.push('Condition: ' + cond.join(', '));
     if (S.notes) lines.push('Notes: ' + S.notes);
@@ -626,7 +730,7 @@
     var t = est ? money(est.low) + ' to ' + money(est.high) : (S.pickup && S.drop ? 'Calculating' : 'Add pickup and drop-off');
     rangeEls.forEach(function (el) { el.textContent = t; });
     if (sumEl) {
-      var rows = [['Vehicle', vehicleOk() ? describeVehicle() : CATS[S.cat].label], ['Pickup', S.pickup ? S.pickup.label : 'Not set yet'], ['Drop-off', S.drop ? S.drop.label : 'Not set yet']];
+      var rows = [['Vehicle', vehicleOk() ? describeVehicle() : (S.cat ? CATS[S.cat].label : 'Pick a vehicle type')], ['Pickup', S.pickup ? S.pickup.label : 'Not set yet'], ['Drop-off', S.drop ? S.drop.label : 'Not set yet']];
       if (est) rows.push(['Loaded miles', Math.round(est.miles.loaded) + ' mi']);
       sumEl.innerHTML = rows.map(function (r) { return '<div><dt>' + r[0] + '</dt><dd>' + escapeHtml(r[1]) + '</dd></div>'; }).join('');
     }
