@@ -523,3 +523,13 @@ body:has(#estimator) .actionbar{display:none}
 .trust .yrs b{color:var(--orange);font-weight:700}
 .trust .yrs{gap:6px}
 .est-map .leaflet-tile-pane{filter:saturate(.7) brightness(1.04) contrast(.94)}
+.confirm{display:flex;align-items:center;gap:14px;background:#f1f7f3;border:1.5px solid #9cc9ae;border-radius:14px;padding:14px 16px;animation:fadeup .35s ease}
+.confirm-check{flex:none;width:40px;height:40px;border-radius:50%;background:var(--sign);color:#fff;display:grid;place-items:center;animation:pop .4s cubic-bezier(.2,.8,.2,1)}
+.confirm-check svg{width:22px;height:22px}
+.confirm-text{flex:1;min-width:0}
+.confirm-text small{display:block;color:var(--steel);font-size:13px}
+.confirm-text b{font-size:20px;font-weight:600}
+.confirm .linkbtn{margin:0}
+.confirm-go{margin-top:12px}
+.confirm-go .btn{width:100%;justify-content:center}
+@keyframes pop{from{transform:scale(.4)}to{transform:none}}

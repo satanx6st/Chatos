@@ -69,7 +69,7 @@
   // ---------- state ----------
   var S = {
     cat: 'rv', rvType: 'fifth', length: 32, hitch: 'Fifth wheel king pin', year: '', make: '', model: '', body: BODIES[0],
-    smallType: 'Golf cart', qty: 1, specialty: {}, ev: false,
+    smallType: 'Golf cart', qty: 1, specialty: {}, ev: false, bodyTouched: false,
     pickup: null, drop: null, pickupType: LOC_TYPES[0], dropType: LOC_TYPES[0],
     access: { pickup: {}, drop: {} }, cond: {}, setplace: false, timing: 'Flexible', date: '', name: '', notes: '',
     route: null, step: 0
@@ -106,7 +106,7 @@
     pills.innerHTML = '';
     Object.keys(CATS).forEach(function (k) {
       pills.appendChild(h('button', { type: 'button', class: 'pill' + (S.cat === k ? ' on' : ''), 'aria-pressed': S.cat === k, onclick: function () {
-        S.cat = k; S.year = S.make = S.model = ''; S.specialty = {}; subTab = 'year'; S.length = k === 'boat' ? 20 : 32; if (!started) { started = true; track('estimate_started', { vehicle: k }); }
+        S.cat = k; S.year = S.make = S.model = ''; S.specialty = {}; subTab = 'year'; S.length = k === 'boat' ? 20 : 32; S.body = BODIES[0]; S.bodyTouched = false; if (!started) { started = true; track('estimate_started', { vehicle: k }); }
         drawPills(); go(0);
       } , html: '<span>' + CATS[k].label + '</span>' + icon(CATS[k].icon) }));
     });
@@ -173,7 +173,7 @@
     } else {
       f.appendChild(yearMakeModel(CAR_MAKES, null, false));
       f.appendChild(h('h3', { text: 'Body style' }));
-      f.appendChild(chips(BODIES, S.body, function (v) { S.body = v; render(); }));
+      f.appendChild(chips(BODIES, S.body, function (v) { S.body = v; S.bodyTouched = true; render(); }));
       if (S.cat === 'classic') {
         f.appendChild(h('h3', { text: 'Specialty' }));
         var c = h('div', { class: 'chips' });
@@ -184,12 +184,21 @@
       }
       f.appendChild(toggle('Electric vehicle', S.ev, function (v) { S.ev = v; }));
     }
-    f.appendChild(nextBtn(vehicleOk(), 'Next: pickup location', 1));
+    f.appendChild(nextBtn(vehicleOk(), subTab === 'done' ? 'Confirm and continue' : 'Next: pickup location', 1));
     return f;
   }
   function yearMakeModel(makes, heading, optional) {
     var box = h('div', { class: 'ymm' });
     if (heading) box.appendChild(h('h3', { text: heading }));
+    if (subTab === 'done' && S.year && S.make && S.model) {
+      var isRV = makes === RV_MAKES;
+      box.appendChild(h('div', { class: 'confirm', id: 'ymm-confirm' }, [
+        h('div', { class: 'confirm-check', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>' }),
+        h('div', { class: 'confirm-text' }, [h('small', { text: 'Your ' + (isRV ? 'RV' : 'vehicle') }), h('b', { text: [S.year, S.make, S.model].join(' ') })]),
+        h('button', { type: 'button', class: 'linkbtn', text: 'Change', onclick: function () { subTab = 'year'; render(); } })
+      ]));
+      return box;
+    }
     var parts = [['year', 'Year', S.year], ['make', 'Make', S.make], ['model', 'Model', S.model]];
     var bar = h('div', { class: 'subtabs', role: 'tablist' });
     parts.forEach(function (p) {
@@ -203,7 +212,10 @@
       box.appendChild(holder);
       loadModels(makes === RV_MAKES ? '' : S.make, S.year).then(function (models) {
         holder.innerHTML = '';
-        holder.appendChild(picker('Model', models, S.model, function (v) { S.model = v; subTab = 'year'; render(); }, { free: true }));
+        holder.appendChild(picker('Model', models, S.model, function (v) {
+          S.model = v; subTab = 'done'; guessBody(); render();
+          var c = document.getElementById('ymm-confirm'); if (c && c.scrollIntoView) c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, { free: true }));
       });
     }
     return box;
@@ -221,6 +233,23 @@
       var m = pick(j); if (m.length) return m;
       return fetch(u2).then(function (r) { return r.json(); }).then(pick);
     }).catch(function () { return []; }).then(function (m) { modelCache[key] = m; return m; });
+  }
+
+  // Pick the body style from NHTSA vehicle type (SUV/MPV or truck); the customer can still change it
+  function guessBody() {
+    if (S.bodyTouched || !(S.cat === 'car' || S.cat === 'classic') || !S.make || !S.year) return;
+    var want = S.model.toLowerCase();
+    var base = 'https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/' + encodeURIComponent(S.make) + '/modelyear/' + S.year + '/vehicletype/';
+    var has = function (type) {
+      return fetch(base + type + '?format=json').then(function (r) { return r.json(); }).then(function (j) {
+        return (j.Results || []).some(function (x) { return String(x.Model_Name).toLowerCase() === want; });
+      }).catch(function () { return false; });
+    };
+    Promise.all([has('mpv'), has('truck')]).then(function (r) {
+      if (S.bodyTouched) return;
+      var nb = r[0] ? 'SUV or crossover' : r[1] ? 'Pickup or van' : 'Sedan or coupe';
+      if (nb !== S.body) { S.body = nb; if (S.step === 0) render(); else update(); }
+    });
   }
 
   // ---------- step 2/3: places ----------
@@ -435,7 +464,7 @@
     if (S.cat === 'small') return S.qty + ' x ' + S.smallType + (S.model ? ' (' + S.model + ')' : '');
     if (S.cat === 'boat') return 'Boat on trailer, ' + S.length + ' ft' + (S.model ? ' (' + S.model + ')' : '');
     var sp = SPECIALTY.filter(function (x) { return S.specialty[x.id]; }).map(function (x) { return x.label.toLowerCase(); });
-    return [S.year, S.make, S.model].join(' ') + ', ' + S.body.toLowerCase() + (S.ev ? ', EV' : '') + (sp.length ? ', ' + sp.join(', ') : '');
+    return [S.year, S.make, S.model].join(' ') + ', ' + S.body.toLowerCase().replace('suv', 'SUV') + (S.ev ? ', EV' : '') + (sp.length ? ', ' + sp.join(', ') : '');
   }
   function message(est) {
     var acc = function (w) { var a = ACCESS.filter(function (x) { return S.access[w][x[0]]; }).map(function (x) { return x[1].toLowerCase(); }); return a.length ? ' (' + a.join(', ') + ')' : ''; };
