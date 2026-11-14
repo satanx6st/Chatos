@@ -435,7 +435,7 @@ est_body = f"""
   </div>
 </section>
 <section class="est-sec">
-  <div class="wrap est-grid" id="estimator" data-leaflet="{R}assets/vendor/leaflet/" data-fuel="{R}assets/data/fuel.json">
+  <div class="wrap est-grid" id="estimator" data-vendor="{R}assets/vendor/" data-fuel="{R}assets/data/fuel.json">
     <aside class="est-side" aria-label="Estimate summary">
       <div class="est-card">
         <small>Approximate range</small>
@@ -472,7 +472,7 @@ est_body = f"""
 """
 est_body += faq_section(EST_FAQ, "Quick estimate questions")
 est_body += band()
-est_body += '<script src="' + R + 'assets/js/estimate.js?v=2026-11e" defer></script>'
+est_body += '<script src="' + R + 'assets/js/estimate.js?v=2026-11f" defer></script>'
 PAGES.append(("Quick-Estimate.html", "0.9"))
 write("Quick-Estimate.html", page("Quick-Estimate.html",
     "RV & Car Transport Cost Estimate San Diego | Chato's",

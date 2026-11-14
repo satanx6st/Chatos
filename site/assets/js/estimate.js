@@ -417,42 +417,116 @@
     }).catch(fallback);
   }
 
-  // ---------- map (Leaflet, loaded on demand) ----------
+  // ---------- map ----------
+  // Branded vector map (MapLibre + OpenFreeMap, no key). Falls back to Leaflet + OpenStreetMap
+  // if WebGL or the vector tiles are not available.
+  var BRAND = {
+    land: '#f1f1ee', park: '#e3e8de', wood: '#dfe5d8', water: '#c4d3da', building: '#e4e3de',
+    minor: '#ffffff', major: '#ffffff', majorCase: '#d9d9d4', freeway: '#f6b26b', freewayCase: '#e08a2e',
+    rail: '#cfcfca', boundary: '#b8b8b2', text: '#4b5057', halo: '#ffffff', route: '#f2891c', routeCase: '#24272b'
+  };
+  function loadScript(src) { return new Promise(function (res, rej) { var s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
+  function loadCss(href) { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; document.head.appendChild(l); }
+  function webgl() { try { var c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl') || c.getContext('experimental-webgl'))); } catch (e) { return false; } }
+
+  function brandStyle(style) {
+    style.layers = style.layers.filter(function (l) { return l.id !== 'ne2_shaded' && !/hillshade/.test(l.id); });
+    style.layers.forEach(function (l) {
+      var id = l.id, p = l.paint = l.paint || {};
+      if (l.type === 'background') p['background-color'] = BRAND.land;
+      else if (id === 'water') p['fill-color'] = BRAND.water;
+      else if (id === 'waterway') p['line-color'] = BRAND.water;
+      else if (id === 'park') { p['fill-color'] = BRAND.park; p['fill-opacity'] = 1; }
+      else if (/landcover_wood/.test(id)) { p['fill-color'] = BRAND.wood; p['fill-opacity'] = 0.6; }
+      else if (/landuse_residential/.test(id)) { p['fill-color'] = '#ecebe6'; }
+      else if (id === 'building') p['fill-color'] = BRAND.building;
+      else if (l.type === 'line' && /motorway/.test(id) && /casing/.test(id)) p['line-color'] = BRAND.freewayCase;
+      else if (l.type === 'line' && /motorway/.test(id)) p['line-color'] = BRAND.freeway;
+      else if (l.type === 'line' && /major_casing/.test(id)) p['line-color'] = BRAND.majorCase;
+      else if (l.type === 'line' && /highway_major/.test(id)) p['line-color'] = BRAND.major;
+      else if (l.type === 'line' && /highway_minor|highway_path/.test(id)) p['line-color'] = BRAND.minor;
+      else if (l.type === 'line' && /railway/.test(id)) p['line-color'] = BRAND.rail;
+      else if (l.type === 'line' && /boundary/.test(id)) p['line-color'] = BRAND.boundary;
+      if (l.type === 'symbol' && !/shield/.test(id)) { p['text-color'] = BRAND.text; p['text-halo-color'] = BRAND.halo; p['text-halo-width'] = 1.4; }
+    });
+    return style;
+  }
+
+  var gl = null, glMarkers = [], glReady = null, useLeaflet = false;
+  function initGL(el) {
+    if (glReady) return glReady;
+    var V = app.dataset.vendor;
+    loadCss(V + 'maplibre/maplibre-gl.css');
+    glReady = Promise.all([loadScript(V + 'maplibre/maplibre-gl.js'), fetch('https://tiles.openfreemap.org/styles/positron').then(function (r) { if (!r.ok) throw 0; return r.json(); })])
+      .then(function (res) {
+        var style = brandStyle(res[1]);
+        gl = new window.maplibregl.Map({ container: el, style: style, center: [CONFIG.base.lon, CONFIG.base.lat], zoom: 8.3, attributionControl: { compact: true }, cooperativeGestures: true });
+        gl.addControl(new window.maplibregl.NavigationControl({ showCompass: false }), 'top-left');
+        return new Promise(function (res2, rej2) {
+          var t = setTimeout(function () { rej2('timeout'); }, 12000);
+          gl.on('load', function () {
+            clearTimeout(t);
+            gl.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            gl.addLayer({ id: 'route-case', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': BRAND.routeCase, 'line-width': 8, 'line-opacity': 0.85 } });
+            gl.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': BRAND.route, 'line-width': 4.5 } });
+            res2(gl);
+          });
+          gl.on('error', function (e) { if (!gl.loaded()) { clearTimeout(t); rej2(e); } });
+        });
+      });
+    return glReady;
+  }
+  function pinEl(color, txt, title) { var d = document.createElement('div'); d.className = 'est-pin'; d.title = title; d.innerHTML = '<span style="background:' + color + '">' + txt + '</span>'; return d; }
+
+  function drawMap() {
+    var el = $('#est-map'); if (!el) return;
+    if (useLeaflet || !webgl()) { useLeaflet = true; return drawLeaflet(el); }
+    initGL(el).then(function (m) {
+      var ML = window.maplibregl;
+      glMarkers.forEach(function (mk) { mk.remove(); }); glMarkers = [];
+      var B = CONFIG.base, pts = [[B.lon, B.lat]];
+      glMarkers.push(new ML.Marker({ element: pinEl('#24272b', 'J', CONFIG.base.label) }).setLngLat([B.lon, B.lat]).addTo(m));
+      if (S.pickup) { glMarkers.push(new ML.Marker({ element: pinEl('#f2891c', 'A', 'Pickup') }).setLngLat([S.pickup.lon, S.pickup.lat]).addTo(m)); pts.push([S.pickup.lon, S.pickup.lat]); }
+      if (S.drop) { glMarkers.push(new ML.Marker({ element: pinEl('#0a6a44', 'B', 'Drop-off') }).setLngLat([S.drop.lon, S.drop.lat]).addTo(m)); pts.push([S.drop.lon, S.drop.lat]); }
+      var geom = S.route && S.route.geometry ? S.route.geometry : (pts.length > 1 ? { type: 'LineString', coordinates: pts } : null);
+      m.getSource('route').setData(geom ? { type: 'Feature', geometry: geom, properties: {} } : { type: 'FeatureCollection', features: [] });
+      m.setPaintProperty('route-line', 'line-dasharray', S.route && S.route.geometry ? [1, 0] : [2, 2]);
+      if (pts.length > 1) {
+        var b = new ML.LngLatBounds(pts[0], pts[0]);
+        (geom && geom.coordinates ? geom.coordinates : pts).forEach(function (c) { b.extend(c); });
+        m.fitBounds(b, { padding: 46, maxZoom: 13, duration: 900 });
+      }
+      m.resize();
+    }).catch(function () { useLeaflet = true; el.innerHTML = ''; drawLeaflet(el); });
+  }
+
+  // Leaflet fallback
   var map, layers, leafletReady;
   function loadLeaflet() {
     if (leafletReady) return leafletReady;
-    leafletReady = new Promise(function (res) {
-      var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = app.dataset.leaflet + 'leaflet.css'; document.head.appendChild(css);
-      var s = document.createElement('script'); s.src = app.dataset.leaflet + 'leaflet.js'; s.onload = res; document.head.appendChild(s);
-    });
+    loadCss(app.dataset.vendor + 'leaflet/leaflet.css');
+    leafletReady = loadScript(app.dataset.vendor + 'leaflet/leaflet.js');
     return leafletReady;
   }
   function pin(color, txt) {
     return window.L.divIcon({ className: 'est-pin', html: '<span style="background:' + color + '">' + txt + '</span>', iconSize: [30, 30], iconAnchor: [15, 15] });
   }
-  function drawMap() {
-    var el = $('#est-map'); if (!el) return;
+  function drawLeaflet(el) {
     loadLeaflet().then(function () {
       var L = window.L;
       if (!map) {
-        map = L.map(el, { scrollWheelZoom: false, zoomControl: true, attributionControl: true }).setView([CONFIG.base.lat, CONFIG.base.lon], 9);
-        // OpenStreetMap tiles (no key needed); if they fail, switch to Esri World Street Map
-        var errs = 0, tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
-        tiles.on('tileerror', function () {
-          if (++errs === 4) { map.removeLayer(tiles); L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' }).addTo(map); }
-        });
+        map = L.map(el, { scrollWheelZoom: false }).setView([CONFIG.base.lat, CONFIG.base.lon], 9);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+        el.classList.add('osm');
         layers = L.layerGroup().addTo(map);
       }
       layers.clearLayers();
       var B = CONFIG.base, pts = [[B.lat, B.lon]];
-      L.marker([B.lat, B.lon], { icon: pin('#24272b', 'J'), title: CONFIG.base.label }).addTo(layers).bindTooltip(CONFIG.base.label);
-      if (S.pickup) { L.marker([S.pickup.lat, S.pickup.lon], { icon: pin('#f2891c', 'A') }).addTo(layers).bindTooltip('Pickup'); pts.push([S.pickup.lat, S.pickup.lon]); }
-      if (S.drop) { L.marker([S.drop.lat, S.drop.lon], { icon: pin('#0a6a44', 'B') }).addTo(layers).bindTooltip('Drop-off'); pts.push([S.drop.lat, S.drop.lon]); }
-      if (S.route && S.route.geometry) {
-        L.geoJSON(S.route.geometry, { style: { color: '#f2891c', weight: 5, opacity: .9 } }).addTo(layers);
-      } else if (S.pickup) {
-        L.polyline(pts, { color: '#f2891c', weight: 3, dashArray: '6 8' }).addTo(layers);
-      }
+      L.marker([B.lat, B.lon], { icon: pin('#24272b', 'J'), title: CONFIG.base.label }).addTo(layers);
+      if (S.pickup) { L.marker([S.pickup.lat, S.pickup.lon], { icon: pin('#f2891c', 'A') }).addTo(layers); pts.push([S.pickup.lat, S.pickup.lon]); }
+      if (S.drop) { L.marker([S.drop.lat, S.drop.lon], { icon: pin('#0a6a44', 'B') }).addTo(layers); pts.push([S.drop.lat, S.drop.lon]); }
+      if (S.route && S.route.geometry) L.geoJSON(S.route.geometry, { style: { color: '#f2891c', weight: 5, opacity: .9 } }).addTo(layers);
+      else if (S.pickup) L.polyline(pts, { color: '#f2891c', weight: 3, dashArray: '6 8' }).addTo(layers);
       if (pts.length > 1) map.fitBounds(pts, { padding: [36, 36], maxZoom: 13 }); else map.setView(pts[0], 9);
       setTimeout(function () { map.invalidateSize(); }, 50);
     });

@@ -533,3 +533,6 @@ body:has(#estimator) .actionbar{display:none}
 .confirm-go{margin-top:12px}
 .confirm-go .btn{width:100%;justify-content:center}
 @keyframes pop{from{transform:scale(.4)}to{transform:none}}
+.est-map .maplibregl-ctrl-attrib{font-size:11px}
+.est-map .maplibregl-ctrl-group{border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.15)}
+.est-map .est-pin{cursor:default}
