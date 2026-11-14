@@ -422,7 +422,7 @@
   // if WebGL or the vector tiles are not available.
   var BRAND = {
     land: '#f1f1ee', park: '#e3e8de', wood: '#dfe5d8', water: '#c4d3da', building: '#e4e3de',
-    minor: '#ffffff', major: '#ffffff', majorCase: '#d9d9d4', freeway: '#f6b26b', freewayCase: '#e08a2e',
+    minor: '#ffffff', major: '#ffffff', majorCase: '#d9d9d4', freeway: '#f7d8ae', freewayCase: '#e3b37a',
     rail: '#cfcfca', boundary: '#b8b8b2', text: '#4b5057', halo: '#ffffff', route: '#f2891c', routeCase: '#24272b'
   };
   function loadScript(src) { return new Promise(function (res, rej) { var s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
@@ -469,6 +469,7 @@
             gl.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
             gl.addLayer({ id: 'route-case', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': BRAND.routeCase, 'line-width': 8, 'line-opacity': 0.85 } });
             gl.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': BRAND.route, 'line-width': 4.5 } });
+            var at = el.querySelector('.maplibregl-ctrl-attrib'); if (at) at.classList.remove('maplibregl-compact-show');
             res2(gl);
           });
           gl.on('error', function (e) { if (!gl.loaded()) { clearTimeout(t); rej2(e); } });
