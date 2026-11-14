@@ -500,8 +500,27 @@ def with_years(desc):
             return desc.replace(old, new)
     return desc.rstrip(".") + ". 30 years of experience."
 
+def hero_preload(body):
+    """Preload the hero image (mobile and desktop versions) so it paints sooner (better LCP)."""
+    out = ""
+    m = re.search(r'<source media="\(max-width: 700px\)" srcset="([^"]+)">\s*(<img [^>]*fetchpriority="high"[^>]*>)', body)
+    if m:
+        img = m.group(2)
+        src = re.search(r' src="([^"]+)"', img).group(1)
+        ss = re.search(r' srcset="([^"]+)"', img)
+        sz = re.search(r' sizes="([^"]+)"', img)
+        out += f'<link rel="preload" as="image" href="{m.group(1)}" media="(max-width: 700px)" fetchpriority="high">\n'
+        extra = f' imagesrcset="{ss.group(1)}" imagesizes="{sz.group(1) if sz else "100vw"}"' if ss else ""
+        out += f'<link rel="preload" as="image" href="{src}"{extra} media="(min-width: 701px)" fetchpriority="high">\n'
+    else:
+        m = re.search(r'<img src="([^"]+)"[^>]*fetchpriority="high"', body)
+        if m:
+            out += f'<link rel="preload" as="image" href="{m.group(1)}" fetchpriority="high">\n'
+    return out
+
 def page(path, title, desc, body, schema_items, og_image=OG_IMG, robots="index,follow", active=None):
     desc = META.get(path, with_years(desc) if robots.startswith("index") else desc)
+    preload_hero = hero_preload(body)
     canonical = url_for(path)
     nav = ""
     for p, n in NAV:
@@ -545,7 +564,7 @@ def page(path, title, desc, body, schema_items, og_image=OG_IMG, robots="index,f
 <link rel="manifest" href="{R}site.webmanifest">
 <link rel="preload" href="{R}assets/fonts/barlow-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="{R}assets/fonts/barlow-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="{R}assets/css/site.css?v=2026-11m">
+{preload_hero}<link rel="stylesheet" href="{R}assets/css/site.css?v=2026-11n">
 <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){{w[l]=w[l]||[];w[l].push({{'gtm.start':new Date().getTime(),event:'gtm.js'}});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);}})(window,document,'script','dataLayer','GTM-WKH4VDNV');</script>
 <!-- Google tag: GA4 + Google Ads (with call conversion number) -->
@@ -559,7 +578,7 @@ def page(path, title, desc, body, schema_items, og_image=OG_IMG, robots="index,f
 <a class="skip" href="#main">Skip to content</a>
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="{R}index.html" aria-label="{esc(BIZ)} home">
+    <a class="brand" href="{R}index.html">
       <img src="{R}images/brand/chatos-truck-logo-64.webp" srcset="{R}images/brand/chatos-truck-logo-64.webp 1x, {R}images/brand/chatos-truck-logo-128.webp 2x" alt="Chato's RV Towing Services logo" width="73" height="64">
       <span><b>Chato's</b><small>Auto Transport &amp; RV Towing</small></span>
     </a>
@@ -614,7 +633,7 @@ def page(path, title, desc, body, schema_items, og_image=OG_IMG, robots="index,f
   </div>
 </footer>
 <div class="actionbar">{call_btn("sticky_bar", label="Call")}{text_btn("sticky_bar", label="Text")}</div>
-<script src="{R}assets/js/site.js?v=2026-11m" defer></script>
+<script src="{R}assets/js/site.js?v=2026-11n" defer></script>
 </body>
 </html>
 '''
