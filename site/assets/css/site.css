@@ -551,3 +551,6 @@ body:has(#estimator) .actionbar{display:none}
 .est-pin span{position:relative;z-index:1}
 @keyframes pinpulse{0%{transform:scale(1);opacity:.75}100%{transform:scale(2.6);opacity:0}}
 @media (prefers-reduced-motion:reduce){.est-pin.pulse::before,.est-pin.pulse::after{animation:none}}
+.send-help{font-size:14px;color:var(--steel);margin:12px 0 0}
+.send-help a{color:var(--ink)}
+.send .btn-dark span{min-width:9ch;text-align:center}

@@ -656,6 +656,14 @@
     if (S.name) lines.push('Name: ' + S.name);
     return ascii(lines.join('\n'));
   }
+  function copyText(t) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t).then(function () { return true; }, function () { return legacyCopy(t); });
+    return Promise.resolve(legacyCopy(t));
+  }
+  function legacyCopy(t) {
+    try { var ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, t.length); var ok = document.execCommand('copy'); document.body.removeChild(ta); return ok; } catch (e) { return false; }
+  }
+  function selectPre(el) { if (!el || !window.getSelection) return; var r = document.createRange(); r.selectNodeContents(el); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
   function stepEstimate() {
     var f = document.createDocumentFragment();
     var est = compute();
@@ -679,11 +687,22 @@
     var subj = ascii('Quick estimate: ' + describeVehicle().split(',')[0] + ', ' + S.pickup.label.split(',')[0] + ' to ' + S.drop.label.split(',')[0]);
     var sms = 'sms:' + CONFIG.phone + '?body=' + encodeURIComponent(msg);
     var mail = 'mailto:' + CONFIG.email + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(msg);
+    var gmail = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(CONFIG.email) + '&su=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(msg);
+    var copyBtn = h('button', { type: 'button', class: 'btn btn-dark', html: '<span>Copy message</span>', onclick: function () {
+      copyText(msg).then(function (ok) {
+        copyBtn.querySelector('span').textContent = ok ? 'Copied! Now paste it' : 'Select the message below';
+        if (!ok) { var d = panel.querySelector('.preview'); if (d) { d.open = true; selectPre(d.querySelector('pre')); } }
+        track('estimate_sent', { method: 'copy', value: est.low });
+        setTimeout(function () { copyBtn.querySelector('span').textContent = 'Copy message'; }, 3000);
+      });
+    } });
     f.appendChild(h('div', { class: 'send' }, [
       h('a', { class: 'btn btn-call', href: sms, 'data-where': 'estimate', onclick: function () { track('estimate_sent', { method: 'sms', value: est.low }); }, html: '<span>Text this to Jose</span>' }),
+      copyBtn,
       h('a', { class: 'btn btn-ghost', href: mail, 'data-where': 'estimate', onclick: function () { track('estimate_sent', { method: 'email', value: est.low }); }, html: '<span>Email it</span>' }),
-      h('a', { class: 'btn btn-ghost', href: 'tel:' + CONFIG.phone, 'data-where': 'estimate', html: '<span>Call (760) 532-1964</span>' })
+      h('a', { class: 'btn btn-ghost', href: gmail, target: '_blank', rel: 'noopener', 'data-where': 'estimate', onclick: function () { track('estimate_sent', { method: 'gmail', value: est.low }); }, html: '<span>Open in Gmail</span>' })
     ]));
+    f.appendChild(h('p', { class: 'send-help', html: 'Nothing opened? Tap <b>Copy message</b> and paste it in a text to <a href="tel:' + CONFIG.phone + '">(760) 532-1964</a> or an email to <a href="mailto:' + CONFIG.email + '">' + CONFIG.email + '</a>.' }));
     f.appendChild(h('details', { class: 'preview' }, [h('summary', { text: 'See the message that will be sent' }), h('pre', { text: msg })]));
     f.appendChild(h('button', { type: 'button', class: 'linkbtn', text: 'Start over', onclick: function () { location.reload(); } }));
     if (!stepEstimate.tracked) { stepEstimate.tracked = true; track('estimate_completed', { vehicle: S.cat, value: est.low, miles: Math.round(est.miles.loaded) }); }
