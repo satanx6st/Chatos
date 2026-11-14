@@ -89,6 +89,7 @@
   var app = $('#estimator');
   if (!app) return;
   var panel = $('.est-body', app), tabs = $('.est-steps', app), pills = $('.est-cats', app);
+  var mbar = document.querySelector('.est-mbar .btn');
   var sumEl = $('#est-summary'), rangeEls = document.querySelectorAll('[data-range]');
   var track = function (ev, p) { window.dataLayer = window.dataLayer || []; window.dataLayer.push(Object.assign({ event: ev }, p || {})); if (window.gtag) window.gtag('event', ev, p || {}); };
   var started = false;
@@ -687,7 +688,14 @@
     var subj = ascii('Quick estimate: ' + describeVehicle().split(',')[0] + ', ' + S.pickup.label.split(',')[0] + ' to ' + S.drop.label.split(',')[0]);
     var sms = 'sms:' + CONFIG.phone + '?body=' + encodeURIComponent(msg);
     var mail = 'mailto:' + CONFIG.email + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(msg);
-    var gmail = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(CONFIG.email) + '&su=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(msg);
+    var enc = encodeURIComponent, to = enc(CONFIG.email), su = enc(subj), bo = enc(msg);
+    var MAILERS = [
+      ['Email app', mail, 'email'],
+      ['Gmail', 'https://mail.google.com/mail/?view=cm&fs=1&to=' + to + '&su=' + su + '&body=' + bo, 'gmail'],
+      ['Yahoo Mail', 'https://compose.mail.yahoo.com/?to=' + to + '&subject=' + su + '&body=' + bo, 'yahoo'],
+      ['Outlook', 'https://outlook.live.com/mail/0/deeplink/compose?to=' + to + '&subject=' + su + '&body=' + bo, 'outlook']
+    ];
+    var ENV = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 7l8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
     var copyBtn = h('button', { type: 'button', class: 'btn btn-dark', html: '<span>Copy message</span>', onclick: function () {
       copyText(msg).then(function (ok) {
         copyBtn.querySelector('span').textContent = ok ? 'Copied! Now paste it' : 'Select the message below';
@@ -698,10 +706,14 @@
     } });
     f.appendChild(h('div', { class: 'send' }, [
       h('a', { class: 'btn btn-call', href: sms, 'data-where': 'estimate', onclick: function () { track('estimate_sent', { method: 'sms', value: est.low }); }, html: '<span>Text this to Jose</span>' }),
-      copyBtn,
-      h('a', { class: 'btn btn-ghost', href: mail, 'data-where': 'estimate', onclick: function () { track('estimate_sent', { method: 'email', value: est.low }); }, html: '<span>Email it</span>' }),
-      h('a', { class: 'btn btn-ghost', href: gmail, target: '_blank', rel: 'noopener', 'data-where': 'estimate', onclick: function () { track('estimate_sent', { method: 'gmail', value: est.low }); }, html: '<span>Open in Gmail</span>' })
+      copyBtn
     ]));
+    var mailRow = h('div', { class: 'mailers' }, [h('span', { class: 'mailers-label', text: 'Or email it with' })]);
+    MAILERS.forEach(function (m) {
+      var ext = m[2] !== 'email';
+      mailRow.appendChild(h('a', { class: 'mailer', href: m[1], target: ext ? '_blank' : null, rel: ext ? 'noopener' : null, 'data-where': 'estimate_' + m[2], onclick: function () { track('estimate_sent', { method: m[2], value: est.low }); }, html: ENV + '<span>' + m[0] + '</span>' }));
+    });
+    f.appendChild(mailRow);
     f.appendChild(h('p', { class: 'send-help', html: 'Nothing opened? Tap <b>Copy message</b> and paste it in a text to <a href="tel:' + CONFIG.phone + '">(760) 532-1964</a> or an email to <a href="mailto:' + CONFIG.email + '">' + CONFIG.email + '</a>.' }));
     f.appendChild(h('details', { class: 'preview' }, [h('summary', { text: 'See the message that will be sent' }), h('pre', { text: msg })]));
     f.appendChild(h('button', { type: 'button', class: 'linkbtn', text: 'Start over', onclick: function () { location.reload(); } }));
@@ -742,6 +754,7 @@
     var est = compute();
     var t = est ? money(est.low) + ' to ' + money(est.high) : (S.pickup && S.drop ? 'Calculating' : 'Add pickup and drop-off');
     rangeEls.forEach(function (el) { el.textContent = t; });
+    if (mbar) mbar.textContent = S.step === 4 && est ? 'Send to Jose' : 'Continue';
     if (sumEl) {
       var rows = [['Vehicle', vehicleOk() ? describeVehicle() : (S.cat ? CATS[S.cat].label : 'Pick a vehicle type')], ['Pickup', S.pickup ? S.pickup.label : 'Not set yet'], ['Drop-off', S.drop ? S.drop.label : 'Not set yet']];
       if (est) rows.push(['Loaded miles', Math.round(est.miles.loaded) + ' mi']);
@@ -757,6 +770,8 @@
   }).catch(function () {});
 
   drawPills(); render(); drawMap();
-  var mbar = $('.est-mbar .btn');
-  if (mbar) mbar.addEventListener('click', function () { go(Math.min(4, maxStep())); });
+  if (mbar) mbar.addEventListener('click', function () {
+    if (S.step === 4) { var sd = panel.querySelector('.send'); if (sd) sd.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    go(Math.min(4, maxStep()));
+  });
 })();

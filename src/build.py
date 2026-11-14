@@ -31,8 +31,8 @@ I_TEXT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" 
 STAR = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.5l2.6 5.5 6 .7-4.4 4.1 1.2 6-5.4-3-5.4 3 1.2-6L1.4 7.7l6-.7z"/></svg>'
 STARS = '<span class="stars" role="img" aria-label="5 out of 5 stars">' + STAR * 5 + '</span>'
 GO = '<svg class="go" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M6 18L16 8v7h3V3H7v3h7L4 16z"/></svg>'
-G_LOGO = '<svg class="src" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7c2.2-2 3.4-5 3.4-8.5z"/><path fill="#34A853" d="M12 23.5c3.1 0 5.7-1 7.6-2.8l-3.7-2.9c-1 .7-2.3 1.1-3.9 1.1-3 0-5.5-2-6.4-4.7H1.8v3A11.5 11.5 0 0 0 12 23.5z"/><path fill="#FBBC05" d="M5.6 14.2a6.9 6.9 0 0 1 0-4.4v-3H1.8a11.5 11.5 0 0 0 0 10.4z"/><path fill="#EA4335" d="M12 5.1c1.7 0 3.2.6 4.4 1.7l3.3-3.3A11.5 11.5 0 0 0 1.8 6.8l3.8 3C6.5 7.1 9 5.1 12 5.1z"/></svg>'
-Y_LOGO = '<svg class="src" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#d32323"/><path fill="#fff" d="M10.6 4.2c-.1-.6-.6-.9-1.1-.8-1.2.3-2.6.8-3.4 1.5-.4.4-.4 1 0 1.4l3.6 5.4c.5.8 1.6.5 1.6-.4zM10 14l-4.2.9c-.6.1-.9.7-.7 1.2.4 1.1 1.1 2.3 1.9 3 .4.4 1 .3 1.3-.1l2.5-3.8c.5-.7-.1-1.6-.8-1.2zm2.8 1.1c-.5-.7-1.5-.3-1.5.5l.3 4.5c0 .6.6.9 1.1.8 1.1-.3 2.3-.9 3.1-1.6.4-.4.4-1 0-1.4zm1.6-3.2 4.1-1.2c.6-.2.8-.8.6-1.3-.5-1-1.2-2-2.1-2.7-.4-.3-1-.2-1.3.3l-2.2 3.8c-.4.7.3 1.5 1 1.1zm.1 2.3c-.8-.2-1.3.8-.7 1.3l3.3 2.9c.4.4 1 .3 1.3-.2.6-1 1-2.2 1-3.3 0-.5-.5-.9-1-.8z"/></svg>'
+G_LOGO = '<span class="src src-g" aria-hidden="true">G</span>'
+Y_LOGO = '<span class="src src-y" aria-hidden="true">Y</span>'
 
 def shield(num, kind="I"):
     if kind == "CA":
@@ -533,7 +533,7 @@ def page(path, title, desc, body, schema_items, og_image=OG_IMG, robots="index,f
 <link rel="manifest" href="{R}site.webmanifest">
 <link rel="preload" href="{R}assets/fonts/barlow-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="{R}assets/fonts/barlow-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="{R}assets/css/site.css?v=2026-11k">
+<link rel="stylesheet" href="{R}assets/css/site.css?v=2026-11l">
 <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){{w[l]=w[l]||[];w[l].push({{'gtm.start':new Date().getTime(),event:'gtm.js'}});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);}})(window,document,'script','dataLayer','GTM-WKH4VDNV');</script>
 <!-- Google tag: GA4 + Google Ads (with call conversion number) -->
@@ -602,7 +602,7 @@ def page(path, title, desc, body, schema_items, og_image=OG_IMG, robots="index,f
   </div>
 </footer>
 <div class="actionbar">{call_btn("sticky_bar", label="Call")}{text_btn("sticky_bar", label="Text")}</div>
-<script src="{R}assets/js/site.js?v=2026-11k" defer></script>
+<script src="{R}assets/js/site.js?v=2026-11l" defer></script>
 </body>
 </html>
 '''
