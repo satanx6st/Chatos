@@ -532,8 +532,8 @@
             gl.addSource('route', { type: 'geojson', lineMetrics: true, data: { type: 'FeatureCollection', features: [] } });
             gl.addLayer({ id: 'route-case', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': BRAND.routeCase, 'line-width': 8, 'line-opacity': 0.85 } });
             gl.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': BRAND.route, 'line-width': 4.5 } });
-            gl.addLayer({ id: 'route-glow', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': 9, 'line-blur': 3, 'line-gradient': glowGradient(-1) } });
-            gl.addLayer({ id: 'route-spark', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': 2.5, 'line-gradient': sparkGradient(-1) } });
+            gl.addLayer({ id: 'route-glow', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': 14, 'line-blur': 5, 'line-gradient': glowGradient(-1) } });
+            gl.addLayer({ id: 'route-spark', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': 3.5, 'line-blur': 0.5, 'line-gradient': sparkGradient(-1) } });
             startLive();
             var at = el.querySelector('.maplibregl-ctrl-attrib'); if (at) at.classList.remove('maplibregl-compact-show');
             res2(gl);
@@ -552,8 +552,8 @@
     if (b2 <= a) b2 = a + 0.00005; if (c <= b2) c = b2 + 0.00005;
     return ['interpolate', ['linear'], ['line-progress'], 0, clear, a, clear, b2, color + peak + ')', c, clear, 1, clear];
   }
-  function glowGradient(p) { return band(p, 0.09, 'rgba(255,214,160,', 0.85); }
-  function sparkGradient(p) { return band(p, 0.05, 'rgba(255,255,255,', 1); }
+  function glowGradient(p) { return band(p, 0.14, 'rgba(255,226,180,', 0.95); }
+  function sparkGradient(p) { return band(p, 0.08, 'rgba(255,255,255,', 1); }
   function setLivePath(coords) {
     live.on = !!(coords && coords.length > 1); live.t0 = performance.now(); live.len = coords ? coords.length : 0;
     if (!live.on && gl && gl.getLayer('route-glow')) { gl.setPaintProperty('route-glow', 'line-gradient', glowGradient(-1)); gl.setPaintProperty('route-spark', 'line-gradient', sparkGradient(-1)); }
