@@ -24,6 +24,7 @@
     rush: 0.15,                      // same-day / ASAP
     routeBuffer: 0.10,               // +10% miles and drive time for detours, traffic and fuel stops
     extraStop: { miles: 8, hours: 0.33, fee: 25 },   // each extra stop on the way
+    multiVehicle: { hookupPct: 0.6, handlingPct: 0.8, mpgDrop: 1.5, max: 3 },   // 2-3 vehicles on one trip; more = custom quote
     rangeLow: 0.9, rangeHigh: 1.2, roundTo: 25,
     addOns: {
       backyard:   { label: 'Backyard or side-yard pickup', price: 150, review: true },
@@ -78,7 +79,7 @@
   // ---------- state ----------
   var S = {
     cat: null, rvType: '', length: 32, hitch: '', stops: 0, year: '', make: '', model: '', body: BODIES[0],
-    smallType: 'Golf cart', qty: 1, specialty: {}, ev: false, bodyTouched: false,
+    smallType: 'Golf cart', qty: 1, qtyMore: false, others: '', specialty: {}, ev: false, bodyTouched: false,
     pickup: null, drop: null, pickupType: LOC_TYPES[0], dropType: LOC_TYPES[0],
     access: { pickup: {}, drop: {} }, cond: {}, setplace: false, timing: 'Flexible', date: '', name: '', notes: '',
     route: null, step: 0
@@ -114,7 +115,7 @@
   // ---------- category pills ----------
   function chooseCat(k) {
     S.cat = k; S.year = S.make = S.model = ''; S.specialty = {}; subTab = 'year'; S.length = k === 'boat' ? 20 : 32;
-    S.body = BODIES[0]; S.bodyTouched = false; S.rvType = ''; S.hitch = ''; S.cond = {};
+    S.body = BODIES[0]; S.bodyTouched = false; S.rvType = ''; S.hitch = ''; S.cond = {}; S.qty = 1; S.qtyMore = false; S.others = '';
     if (!started) { started = true; track('estimate_started', { vehicle: k }); }
     drawPills(); go(0);
   }
@@ -155,6 +156,18 @@
   }
   var YEARS = (function () { var a = [], y = new Date().getFullYear() + 1; for (; y >= 1930; y--) a.push(String(y)); return a; })();
 
+  function qtyField(noun) {
+    var box = h('div', { class: 'qty' });
+    box.appendChild(h('h3', { text: 'How many ' + noun + ' on this trip?' }));
+    var cur = S.qtyMore ? 'More than 3' : String(S.qty);
+    box.appendChild(chips(['1', '2', '3', 'More than 3'], cur, function (v) {
+      S.qtyMore = v === 'More than 3'; S.qty = S.qtyMore ? 4 : parseInt(v, 10); render();
+    }));
+    if (S.qtyMore) box.appendChild(h('p', { class: 'custom-note', html: '<b>More than 3 ' + noun + ' needs a custom quote.</b> Finish the steps and send it to Jose. He will price the whole trip for you.' }));
+    if (S.qty > 1 || S.qtyMore) box.appendChild(h('label', { class: 'field' }, [h('span', { text: 'The other ' + noun + ' (year, make, model)' }), h('textarea', { rows: 2, placeholder: noun === 'vehicles' ? 'e.g. 2019 Honda Civic, 2015 Ford F-150' : 'e.g. 2 Club Car golf carts', oninput: function (e) { S.others = e.target.value; } }, [S.others])]));
+    return box;
+  }
+
   // ---------- step 1: vehicle ----------
   var subTab = 'year';
   function vehicleOk() {
@@ -190,8 +203,8 @@
     } else if (S.cat === 'small') {
       f.appendChild(h('h3', { text: 'What are we moving?' }));
       f.appendChild(chips(SMALL_TYPES, S.smallType, function (v) { S.smallType = v; render(); }));
-      f.appendChild(rangeField('How many', 1, 4, S.qty, '', function (v) { S.qty = v; update(); }));
       f.appendChild(h('label', { class: 'field' }, [h('span', { text: 'Make and model (optional)' }), h('input', { type: 'text', value: S.model, placeholder: 'e.g. Club Car Onward, Honda Rancher', oninput: function (e) { S.model = e.target.value; update(); } })]));
+      f.appendChild(qtyField('units'));
     } else if (S.cat === 'boat') {
       f.appendChild(h('h3', { text: 'Boat on its own trailer' }));
       f.appendChild(rangeField('Boat length', 10, 30, S.length > 30 ? 20 : S.length, ' ft', function (v) { S.length = v; update(); }));
@@ -209,6 +222,7 @@
         f.appendChild(c);
       }
       f.appendChild(toggle('Electric vehicle', S.ev, function (v) { S.ev = v; }));
+      f.appendChild(qtyField('vehicles'));
     }
     f.appendChild(nextBtn(vehicleOk(), subTab === 'done' ? 'Confirm and continue' : 'Next: pickup location', 1));
     return f;
@@ -414,13 +428,14 @@
     var k = vehicleKey(), C = CONFIG, leg = S.route.legs;
     var buf = 1 + C.routeBuffer, st = S.stops || 0;
     var toPickupMi = leg[0].mi * buf, loadedMi = leg[1].mi * buf + st * C.extraStop.miles, homeMi = leg[2].mi * buf;
-    var mpgTow = C.mpgTowing[k];
+    var multi = (k === 'car' || k === 'classic' || k === 'small'), n = multi ? Math.min(S.qty, C.multiVehicle.max) : 1, M = C.multiVehicle;
+    var mpgTow = C.mpgTowing[k] - (multi ? (n - 1) * M.mpgDrop : 0);
     if (k === 'rv') mpgTow = Math.max(6.5, mpgTow - Math.max(0, S.length - 30) * 0.12);
     var fuel = ((toPickupMi + homeMi * C.returnLegFactor) / C.mpgEmpty + loadedMi / mpgTow) * C.dieselPerGallon;
     var driveH = (leg[0].h + leg[1].h * C.towingSlowdown + leg[2].h * C.returnLegFactor) * buf + st * C.extraStop.hours;
-    var handleH = C.handlingHours[k] * (k === 'small' ? Math.max(1, S.qty * 0.7) : 1);
+    var handleH = C.handlingHours[k] * (1 + (n - 1) * M.handlingPct);
     var time = (driveH + handleH) * C.driverPerHour;
-    var hookup = C.hookupFee[k] * (k === 'small' ? (1 + (S.qty - 1) * 0.5) : 1);
+    var hookup = C.hookupFee[k] * (1 + (n - 1) * M.hookupPct);
     var sizeAdj = 0;
     if (k === 'rv' && S.length > C.rvLengthOver.ft) sizeAdj = (hookup + time) * (S.length - C.rvLengthOver.ft) * C.rvLengthOver.perFt;
     if ((k === 'car' || k === 'classic') && S.body === 'Lifted or oversize') sizeAdj = 50;
@@ -444,9 +459,9 @@
     var total = Math.max(C.minimum[k], sub + rush);
     var r = function (n) { return Math.round(n / C.roundTo) * C.roundTo; };
     return {
-      low: r(total * C.rangeLow), high: r(total * C.rangeHigh), total: total,
+      low: r(total * C.rangeLow), high: r(total * C.rangeHigh), total: total, custom: !!(multi && S.qtyMore),
       lines: [
-        ['Tow and hookup fee', hookup + sizeAdj],
+        [(n > 1 ? 'Tow and hookup fee, ' + n + ' vehicles' : 'Tow and hookup fee'), hookup + sizeAdj],
         ['Diesel at $' + CONFIG.dieselPerGallon.toFixed(2) + '/gal, ' + Math.round(toPickupMi + loadedMi + homeMi) + ' mi incl. ' + Math.round(C.routeBuffer * 100) + '% detour buffer', fuel],
         ['Driver time, about ' + (driveH + handleH).toFixed(1) + ' hrs', time]
       ].concat(add.filter(function (a) { return a.price; }).map(function (a) { return [a.label, a.price]; }))
@@ -634,10 +649,11 @@
   // ---------- estimate step ----------
   function describeVehicle() {
     if (S.cat === 'rv') { var t = RV_TYPES.filter(function (x) { return x.id === S.rvType; })[0]; return [S.year, S.make, S.model].filter(Boolean).join(' ') + (S.make || S.model || S.year ? ' ' : '') + t.label.toLowerCase() + ', ' + S.length + ' ft, hitch: ' + S.hitch.toLowerCase(); }
-    if (S.cat === 'small') return S.qty + ' x ' + S.smallType + (S.model ? ' (' + S.model + ')' : '');
+    if (S.cat === 'small') return (S.qtyMore ? 'More than 3' : S.qty) + ' x ' + S.smallType + (S.model ? ' (' + S.model + ')' : '');
     if (S.cat === 'boat') return 'Boat on trailer, ' + S.length + ' ft' + (S.model ? ' (' + S.model + ')' : '');
     var sp = SPECIALTY.filter(function (x) { return S.specialty[x.id]; }).map(function (x) { return x.label.toLowerCase(); });
-    return [S.year, S.make, S.model].join(' ') + ', ' + S.body.toLowerCase().replace('suv', 'SUV') + (S.ev ? ', EV' : '') + (sp.length ? ', ' + sp.join(', ') : '');
+    var many = S.qtyMore ? 'More than 3 vehicles, first: ' : S.qty > 1 ? S.qty + ' vehicles, first: ' : '';
+    return many + [S.year, S.make, S.model].join(' ') + ', ' + S.body.toLowerCase().replace('suv', 'SUV') + (S.ev ? ', EV' : '') + (sp.length ? ', ' + sp.join(', ') : '');
   }
   function message(est) {
     var acc = function (w) { var a = ACCESS.filter(function (x) { return S.access[w][x[0]]; }).map(function (x) { return x[1].toLowerCase(); }); return a.length ? ' (' + a.join(', ') + ')' : ''; };
@@ -649,11 +665,12 @@
       'Miles: about ' + Math.round(est.miles.loaded) + ' loaded',
       'Timing: ' + S.timing + (S.date ? ', ' + S.date : '')
     ];
+    if (S.others) lines.push('Other vehicles: ' + S.others);
     if (S.stops) lines.push('Extra stops: ' + S.stops);
     var cond = Object.keys(S.cond).filter(function (c) { return S.cond[c]; }).map(function (c) { return CONFIG.addOns[c].label.toLowerCase(); });
     if (cond.length) lines.push('Condition: ' + cond.join(', '));
     if (S.notes) lines.push('Notes: ' + S.notes);
-    lines.push('Website estimate: ' + money(est.low) + ' - ' + money(est.high) + ' (approximate, needs your review)');
+    lines.push(est.custom ? 'More than 3 vehicles: please send me a custom quote' : 'Website estimate: ' + money(est.low) + ' - ' + money(est.high) + ' (approximate, needs your review)');
     if (S.name) lines.push('Name: ' + S.name);
     return ascii(lines.join('\n'));
   }
@@ -669,12 +686,18 @@
     var f = document.createDocumentFragment();
     var est = compute();
     if (!est) { f.appendChild(h('p', { class: 'loading', text: 'Calculating the route' })); return f; }
-    f.appendChild(h('div', { class: 'est-result' }, [
+    if (est.custom) {
+      f.appendChild(h('div', { class: 'est-result' }, [
+        h('small', { text: 'More than 3 vehicles' }),
+        h('div', { class: 'big', text: 'Custom quote' }),
+        h('p', { class: 'disc', html: '<b>Trips with more than 3 vehicles are priced by Jose.</b> Send him your details below and he will put together a fair quote for the whole trip. Fair quote guaranteed.' })
+      ]));
+    } else f.appendChild(h('div', { class: 'est-result' }, [
       h('small', { text: 'Your approximate range' }),
       h('div', { class: 'big', text: money(est.low) + ' to ' + money(est.high) }),
       h('p', { class: 'disc', html: '<b>This is an approximate estimate, not a final quote.</b> Jose has to review your information, and the final quote can change depending on the vehicle, access at pickup and drop-off, the route and timing. Whatever it ends up being, your final quote will always be fair. Guaranteed.' })
     ]));
-    var tbl = h('table', { class: 'breakdown' });
+    var tbl = h('table', { class: 'breakdown' + (est.custom ? ' hide' : '') });
     est.lines.forEach(function (l) { tbl.appendChild(h('tr', {}, [h('td', { text: l[0] }), h('td', { text: money(l[1]) })])); });
     if (est.minApplied) tbl.appendChild(h('tr', { class: 'min' }, [h('td', { text: 'Minimum for this kind of move applies' }), h('td', { text: '' })]));
     f.appendChild(tbl);
@@ -752,7 +775,7 @@
   }
   function update() {
     var est = compute();
-    var t = est ? money(est.low) + ' to ' + money(est.high) : (S.pickup && S.drop ? 'Calculating' : 'Add pickup and drop-off');
+    var t = est ? (est.custom ? 'Custom quote' : money(est.low) + ' to ' + money(est.high)) : (S.qtyMore ? 'Custom quote' : (S.pickup && S.drop ? 'Calculating' : 'Add pickup and drop-off'));
     rangeEls.forEach(function (el) { el.textContent = t; });
     if (mbar) mbar.textContent = S.step === 4 && est ? 'Send to Jose' : 'Continue';
     if (sumEl) {

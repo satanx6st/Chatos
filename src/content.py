@@ -239,7 +239,7 @@ CT_FAQ = [
     ("Is this car towing or car transport?",
      "Transport. Your car rides on a car hauler behind Jose's truck, strapped down at the wheels, and goes straight from pickup to delivery. It is scheduled, not a roadside call."),
     ("Is my car the only one on the trailer?",
-     "Yes. Chato's hauls one vehicle at a time, so there are no other cars loaded above or behind yours and no stops at a terminal."),
+     "Yes. Chato's never mixes your car with other customers' cars and never stops at a terminal. If you have two or three of your own vehicles going the same way, Jose can take them on the same trip. More than three gets a custom quote."),
     ("Can you move an electric vehicle like a Tesla?",
      "Yes. EVs are loaded in transport or tow mode and strapped at the wheels like any other car. Have it charged enough to drive on and off the trailer if possible."),
     ("Can you pick up a car I bought from a dealer or auction?",

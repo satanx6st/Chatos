@@ -564,3 +564,6 @@ span.src-y{background:var(--orange);color:var(--ink)}
 .mailer svg{width:18px;height:18px;color:var(--orange-dk)}
 .mailer:hover{border-color:var(--ink);background:#fafaf8}
 @media (max-width:700px){.mailer{flex:1 1 calc(50% - 8px);justify-content:center}}
+.breakdown.hide{display:none}
+.qty{margin-top:6px}
+.custom-note{background:#fff4e8;border-left:4px solid var(--orange);border-radius:8px;padding:12px 14px;margin:12px 0 0;font-size:15px}
