@@ -564,7 +564,7 @@ def page(path, title, desc, body, schema_items, og_image=OG_IMG, robots="index,f
 <link rel="manifest" href="{R}site.webmanifest">
 <link rel="preload" href="{R}assets/fonts/barlow-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="{R}assets/fonts/barlow-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-{preload_hero}<link rel="stylesheet" href="{R}assets/css/site.css?v=2026-11n">
+{preload_hero}<link rel="stylesheet" href="{R}assets/css/site.css?v=2026-11t">
 <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){{w[l]=w[l]||[];w[l].push({{'gtm.start':new Date().getTime(),event:'gtm.js'}});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);}})(window,document,'script','dataLayer','GTM-WKH4VDNV');</script>
 <!-- Google tag: GA4 + Google Ads (with call conversion number) -->
@@ -633,7 +633,7 @@ def page(path, title, desc, body, schema_items, og_image=OG_IMG, robots="index,f
   </div>
 </footer>
 <div class="actionbar">{call_btn("sticky_bar", label="Call")}{text_btn("sticky_bar", label="Text")}</div>
-<script src="{R}assets/js/site.js?v=2026-11n" defer></script>
+<script src="{R}assets/js/site.js?v=2026-11t" defer></script>
 </body>
 </html>
 '''

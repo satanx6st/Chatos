@@ -421,27 +421,29 @@ for rt in ROUTE_DATA:
 # =====================================================================
 R = ""
 EST_FAQ = [
-    ("Is the online estimate my final price?", "No. It is an approximate range based on the details you enter and the driving route. Jose reviews every request and the final quote can change depending on the vehicle, access at pickup and drop-off, the route and timing. Your final quote will always be fair. Guaranteed."),
-    ("How is the estimate calculated?", "It starts from Jose's base in Escondido and adds up the drive to your pickup, the loaded miles to your drop-off and part of the drive home, diesel for the truck, driver time for driving and hookup, the tow fee for your type of vehicle, and any extras like a backyard pickup or a steep driveway."),
-    ("Why does a backyard or tight spot change the price?", "Backing an RV out of a backyard, through a tight gate or up a steep driveway takes more time and care. Some of these Jose wants to see in photos first, so the estimate flags them for review."),
-    ("What happens after I send it?", "Your details go to Jose by text or email, already filled in. He reviews them, asks for a photo if needed, and replies with your fair quote."),
+    ("Is the online estimate my final price?", "No. It is an approximate range based on what you enter. The estimate can change when you talk with Jose: he can adjust it in your favor, or depending on your conditions, like access at pickup and drop-off, the condition of your vehicle and the exact length of your RV or trailer. Your final quote will always be fair. Guaranteed."),
+    ("How are in-town RV moves priced?", "In San Diego County and the Temecula area, RV moves are priced by the hour, and the hourly rate depends on the length of the RV. The clock runs from the moment Jose hooks up to the moment he unhooks, so a tight spot or a slow hookup adds time. A minimum rate applies."),
+    ("Why are there two numbers?", "The first number is the fair price if everything goes smoothly. The second one covers the extra time that sometimes shows up at pickup or drop-off, or in traffic."),
+    ("Why doesn't it show a price for long distance?", "Long-distance moves, like San Diego to Arizona, Las Vegas or Northern California, are priced per mile based on the exact locations, the condition of your vehicle and the weather. Send your details to Jose and he will reply with a fair quote."),
+    ("How much is a local car tow?", "In town, cars, classics, golf carts, motorcycles and boats have a $150 minimum. Longer in-town moves cost a bit more, and the estimate shows you the range."),
+    ("Why do you need my name and phone number?", "So Jose knows who the estimate is for and can reply with your quote. Your details only go to Jose, by your own text or email."),
 ]
 est_body = f"""
 <section class="hero short est-hero">
   <div class="wrap">
     <nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="{R}index.html">Home</a></li><li aria-current="page">Quick estimate</li></ol></nav>
     <h1>{split_lines("Quick estimate for<br>RV &amp; car transport")}</h1>
-    <p class="lede">Pick your vehicle, add the pickup and drop-off, and get an approximate price range in about a minute. Then send it to Jose with one tap.</p>
+    <p class="lede">Four easy steps: your vehicle, pickup, drop-off and your name. You get an approximate price in about a minute and send it to Jose with one tap.</p>
   </div>
 </section>
 <section class="est-sec">
   <div class="wrap est-grid" id="estimator" data-vendor="{R}assets/vendor/" data-fuel="{R}assets/data/fuel.json">
     <aside class="est-side" aria-label="Estimate summary">
       <div class="est-card">
-        <small>Approximate range</small>
-        <div class="est-range" data-range aria-live="polite">Add pickup and drop-off</div>
+        <small>Approximate price</small>
+        <div class="est-range wait" data-range aria-live="polite">Shown at the last step</div>
         <dl id="est-summary"></dl>
-        <p class="disc-mini">Approximate only. Jose reviews every request and the final quote can change. Fair quote guaranteed.</p>
+        <p class="disc-mini">Approximate only. The price can change when you talk with Jose. Fair quote guaranteed.</p>
       </div>
       <div id="est-map" class="est-map" role="img" aria-label="Map of Jose's base, the pickup and the drop-off"></div>
     </aside>
@@ -454,17 +456,17 @@ est_body = f"""
     </div>
   </div>
 </section>
-<div class="est-mbar"><div><small>Approximate range</small><b data-range>Add pickup and drop-off</b></div><button type="button" class="btn btn-call">Continue</button></div>
+<div class="est-mbar"><div><small>Approximate price</small><b data-range class="wait">Shown at the last step</b></div><button type="button" class="btn btn-call">Continue</button></div>
 <section class="sec">
   <div class="wrap est-info">
     <div class="prose">
       <h2>How the quick estimate works</h2>
-      <p>The range is built the same way Jose prices a move: the miles from his base in Escondido to your pickup, the loaded miles to your drop-off, part of the drive home, diesel for the RAM 3500, driver time for driving and hookup, the tow fee for your kind of vehicle, and extras like a backyard pickup, a steep driveway or a vehicle that doesn't run.</p>
-      <p>Long trips include an overnight on the road. Same-day requests include a rush charge. Everything is shown line by line so you can see where the number comes from.</p>
+      <p>In town, RV moves are priced by the hour. The hourly rate depends on the length of your RV, and the clock runs from hookup to unhook, so the state of the pickup and drop-off spots matters. Cars, classics, golf carts, motorcycles and boats have a $150 local minimum.</p>
+      <p>You get two numbers. The first is the fair price if everything goes smoothly. The second covers extra time. Long-distance moves are priced per mile on the exact locations, the condition of the vehicle and the weather, so for those you send your details and Jose quotes it himself.</p>
     </div>
     <div class="note">
       <h3>Important</h3>
-      <p><strong>This is an approximate estimate, not a quote.</strong> Jose has to review your information, and the final quote can change depending on the vehicle, its condition, access at pickup and drop-off, the route and timing.</p>
+      <p><strong>This estimate can change when you talk with Jose.</strong> He can adjust it in your favor, or depending on your conditions: access at pickup and drop-off, the condition of the vehicle and the exact length of your RV or trailer. A minimum rate applies in San Diego.</p>
       <p>Whatever the final number is, it will be fair. That's Jose's guarantee.</p>
     </div>
   </div>
@@ -472,7 +474,7 @@ est_body = f"""
 """
 est_body += faq_section(EST_FAQ, "Quick estimate questions")
 est_body += band()
-est_body += '<script src="' + R + 'assets/js/estimate.js?v=2026-11n" defer></script>'
+est_body += '<script src="' + R + 'assets/js/estimate.js?v=2026-11t" defer></script>'
 PAGES.append(("Quick-Estimate.html", "0.9"))
 write("Quick-Estimate.html", page("Quick-Estimate.html",
     "RV & Car Transport Cost Estimate San Diego | Chato's",
